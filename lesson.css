@@ -99,3 +99,75 @@
   .frac { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; line-height: 1.05; margin: 0 0.08em; }
   .frac .fb { align-self: stretch; height: 0.07em; min-height: 3px; margin: 0.06em -0.08em; border-radius: 0.04em; }
   #vid { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; display: none; background: #0f1b2d; }
+
+/* ---------- touch devices ---------- */
+  button, .key, .choice, .btn, .dot, #vid { touch-action: manipulation; -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; }
+  body.play { position: fixed; inset: 0; overscroll-behavior: none; }
+  #rotate { display: none; }
+
+/* Landscape on small screens (phones, small tablets): bigger touch targets. */
+  body.compact .keypad { grid-template-columns: repeat(3, 150px) !important; gap: 12px !important; }
+  body.compact .keypad.k4 { grid-template-columns: repeat(4, 140px) !important; }
+  body.compact .key { height: 92px; font-size: 52px; }
+  body.compact .btn { font-size: 46px; padding: 24px 56px; }
+  body.compact #controls button { width: 104px; height: 104px; font-size: 40px; }
+  body.compact .dot { width: 24px; height: 24px; }
+  body.compact .steplabel { font-size: 30px; }
+
+/* Portrait (phones and tablets held upright): a 1080×1920 stage. */
+  body.portrait #stage { width: 1080px; height: 1920px; }
+  body.portrait #vid { top: 560px; width: 1080px; height: 608px; }
+  body.portrait.vidon #rotate { display: block; top: 1200px; left: 0; right: 0; text-align: center; color: #9aa5b8; font-size: 40px; }
+  body.portrait #controls { left: 50%; right: auto; transform: translateX(-50%); bottom: auto; top: 1300px; gap: 48px; }
+  body.portrait #controls button { width: 136px; height: 136px; font-size: 50px; }
+  body.portrait #progress { top: 40px; }
+  body.portrait .dots { flex-wrap: wrap; justify-content: center; max-width: 1000px; gap: 12px; }
+  body.portrait .dot { width: 32px; height: 32px; }
+  body.portrait .steplabel { font-size: 36px; }
+  body.portrait .scenebar { width: 600px; height: 8px; }
+  body.portrait #start { padding: 0 70px; text-align: center; }
+  body.portrait #start > div { white-space: normal !important; }
+  body.portrait .home { top: 60px; left: 50px; font-size: 40px; }
+
+  body.portrait #quiz, body.portrait #summary { padding: 190px 56px 70px !important; gap: 34px !important; display: none; }
+  body.portrait #quiz:has(.withfig):has(.steps) { grid-template-columns: none !important; }
+  body.portrait .qhead { flex-wrap: wrap; gap: 10px 30px; }
+  body.portrait .qtitle { font-size: 48px; }
+  body.portrait .qcount { font-size: 38px; }
+  body.portrait .qtag { font-size: 36px; }
+  body.portrait .qtext, body.portrait .qtext.long { font-size: 60px !important; max-width: 968px !important; text-align: left !important; line-height: 1.3 !important; white-space: normal !important; }
+  body.portrait .qtext.long { font-size: 50px !important; }
+  body.portrait .answer, body.portrait .answer.withfig { flex-direction: column !important; gap: 40px !important; align-items: center !important; }
+  body.portrait .qfig, body.portrait .qfig svg { max-width: 968px !important; max-height: 640px !important; }
+  body.portrait .fill { font-size: 84px !important; flex-wrap: wrap; justify-content: center; }
+  body.portrait .num { width: 420px !important; font-size: 80px !important; padding: 14px !important; }
+  body.portrait .num.wide { width: 760px !important; }
+  body.portrait .num.small { width: 200px !important; }
+  body.portrait .tip { font-size: 34px; text-align: center; max-width: 900px; white-space: normal; }
+  body.portrait .keypad { grid-template-columns: repeat(3, 230px) !important; gap: 18px !important; }
+  body.portrait .keypad.k4 { grid-template-columns: repeat(4, 210px) !important; }
+  body.portrait .key { height: 124px !important; font-size: 64px !important; border-radius: 22px; }
+  body.portrait .choices { grid-template-columns: 1fr !important; gap: 24px !important; }
+  body.portrait .choice { width: 968px !important; height: auto !important; min-height: 136px; font-size: 58px !important; line-height: 1.2 !important;
+    padding: 18px 36px !important; display: flex !important; align-items: center; gap: 34px !important; white-space: normal !important; text-align: left; }
+  body.portrait .choice .letter { width: 80px !important; height: 80px !important; font-size: 44px !important; flex-shrink: 0; margin: 0 !important; top: 0 !important; line-height: 80px !important; }
+  body.portrait .feedback { width: 968px; }
+  body.portrait .msg { font-size: 44px !important; max-width: 968px !important; text-align: center; }
+  body.portrait .steps { max-width: 968px; }
+  body.portrait .stepline { font-size: 54px !important; white-space: normal !important; }
+  body.portrait .stepline .note { display: block !important; margin: 0 0 8px 0 !important; font-size: 34px !important; }
+  body.portrait .actions { flex-wrap: wrap; justify-content: center; gap: 26px; margin-top: 40px; }
+  body.portrait .btn { font-size: 50px !important; padding: 30px 60px !important; }
+
+  body.portrait .sumtitle { font-size: 76px !important; text-align: center; }
+  body.portrait .score { font-size: 46px !important; text-align: center; } body.portrait .score b { font-size: 64px !important; }
+  body.portrait #summary .sumtable, body.portrait .sumtable { width: 968px !important; font-size: 32px !important; table-layout: auto !important; display: table !important; }
+  body.portrait #summary .sumtable tbody { display: table-row-group !important; column-count: 1 !important; }
+  body.portrait #summary .sumtable tr { display: table-row !important; }
+  body.portrait .sumtable td, body.portrait .sumtable th { white-space: normal !important; padding: 10px 12px !important; max-width: none !important; width: auto !important; overflow: visible !important; }
+  body.portrait .sumtable th:nth-child(3), body.portrait .sumtable td.ans { display: none !important; }
+  body.portrait #quiz:not([style*="none"]):has(.withfig):has(.steps) { display: flex !important; }
+  .btn { white-space: nowrap; }
+  .actions { flex-wrap: wrap; justify-content: center; }
+  body:not(.vidon) #progress { background: linear-gradient(#0f1b2d 78%, rgba(15,27,45,0)); padding-bottom: 26px; top: 0; padding-top: 18px; }
+  body.portrait:not(.vidon) #progress { padding-top: 40px; }

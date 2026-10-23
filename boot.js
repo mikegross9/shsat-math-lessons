@@ -11,7 +11,8 @@
     const ui = document.createElement("div");
     ui.id = "ui";
     ui.innerHTML = `
-      <video id="vid" playsinline preload="auto"></video>
+      <video id="vid" playsinline webkit-playsinline preload="auto"></video>
+      <div id="rotate">↻ Turn sideways for a bigger picture</div>
       <div id="progress"></div>
       <div id="quiz"></div>
       <div id="summary"></div>

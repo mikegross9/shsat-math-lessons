@@ -8,27 +8,49 @@ const h = (tag, cls, html) => { const e = document.createElement(tag); if (cls) 
 const STORE = "shsat-" + (document.body.dataset.unit || "lesson");
 
 // ---------- audio ----------
-let voice = null;
+// One reusable audio element for the voice: iPhone/iPad Safari only lets an element play sound after a tap
+// has started it once, so the Start tap unlocks this element and every later clip reuses it.
+const voiceEl = new Audio();
+voiceEl.preload = "auto";
+let voice = null, voiceEnd = null;
+function finishVoice() { const f = voiceEnd; voiceEnd = null; if (f) f(); }
 function say(key, onEnd) {
   stopVoice();
   const src = L.sounds[key];
   if (!src) { if (onEnd) setTimeout(onEnd, 400); return null; }
-  voice = new Audio(src);
-  if (onEnd) voice.addEventListener("ended", onEnd, { once: true });
-  voice.play().catch(() => onEnd && onEnd());
-  return voice;
+  voiceEnd = onEnd || null;
+  voiceEl.onended = finishVoice;
+  voiceEl.src = src;
+  voiceEl.play().catch(finishVoice);
+  voice = voiceEl;
+  return voiceEl;
 }
-function stopVoice() { if (voice) { voice.pause(); voice = null; } }
+function stopVoice() { voiceEnd = null; voiceEl.onended = null; voiceEl.pause(); voice = null; }
+function unlockMedia() {
+  const any = L.sounds.correct0 || Object.values(L.sounds)[0];
+  if (!any) return;
+  voiceEl.muted = true; voiceEl.src = any;
+  voiceEl.play().then(() => { voiceEl.pause(); voiceEl.muted = false; }).catch(() => { voiceEl.muted = false; });
+}
 
 // ---------- layout: scale the 1920x1080 stage to the window ----------
+// Phones and tablets: the stage is 1920×1080 in landscape and 1080×1920 in portrait, scaled to fit the screen.
+// "compact" enlarges touch targets when the stage is shrunk a lot (phones in landscape, small tablets).
 function fit() {
-  const s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+  const w = window.innerWidth, h = window.innerHeight;
+  const portrait = h > w * 1.1;
+  const W = portrait ? 1080 : 1920, H = portrait ? 1920 : 1080;
+  const s = Math.min(w / W, h / H);
+  document.body.classList.toggle("portrait", portrait);
+  document.body.classList.toggle("compact", !portrait && s < 0.7);
   const st = $("#stage");
+  st.style.width = W + "px"; st.style.height = H + "px";
   st.style.transform = `scale(${s})`;
-  st.style.left = (window.innerWidth - 1920 * s) / 2 + "px";
-  st.style.top = (window.innerHeight - 1080 * s) / 2 + "px";
+  st.style.left = (w - W * s) / 2 + "px";
+  st.style.top = (h - H * s) / 2 + "px";
 }
 window.addEventListener("resize", fit);
+window.addEventListener("orientationchange", () => setTimeout(fit, 250));
 
 // ---------- flow ----------
 let step = 0;
@@ -69,7 +91,7 @@ function stopScene() {
   if (raf) cancelAnimationFrame(raf);
   raf = null;
   if (cur) {
-    if (cur.video) { cur.video.pause(); cur.video.onended = null; cur.video.style.display = "none"; }
+    if (cur.video) { cur.video.pause(); cur.video.onended = null; cur.video.style.display = "none"; document.body.classList.remove("vidon"); }
     else { cur.audio.pause(); cur.scene.root.style.display = "none"; }
     cur = null;
   }
@@ -79,6 +101,8 @@ function stopScene() {
 function playVideo(scene, src, done) {
   const v = $("#vid");
   v.src = src; v.currentTime = 0; v.style.display = "block";
+  document.body.classList.add("vidon");
+  v.onclick = togglePause;
   cur = { video: v, scene, paused: false, done };
   $("#controls").style.display = "flex";
   $("#pause").textContent = "❚❚";
@@ -354,6 +378,7 @@ function showSummary(d) {
 
 // ---------- start ----------
 function start() {
+  unlockMedia();
   startedAt = new Date().toISOString();
   $("#start").style.display = "none";
   go(0);
