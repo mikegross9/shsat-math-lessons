@@ -1,0 +1,380 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><title>Unit 3 · Percents</title>
+<link rel="stylesheet" href="../lesson.css">
+<style>
+  /* Unit 3 only: this unit has long word problems, tables and circle graphs, so the quiz layout is a bit tighter. */
+  .qtext.long { font-size: 44px; line-height: 1.28; }
+  .qhead .qtag { align-self: center; }
+  /* worked solution beside the figure (moved there by fitQuiz below) */
+  .feedback.u3side { align-items: flex-start; max-width: 880px; }
+  .feedback.u3side .msg { text-align: left; max-width: 880px; }
+  .feedback.u3side .stepline { font-size: 48px; white-space: normal; }
+  .feedback.u3side .stepline .note { display: block; margin: 2px 0 0 0; }
+  /* long answer choices (the video game question): one column */
+  .answer.withfig:has(.u3long) .choices { grid-template-columns: 1fr; gap: 14px; }
+  .answer.withfig:has(.u3long) .choice { width: 820px; height: 72px; font-size: 36px; gap: 22px; }
+  .answer.withfig:has(.u3long) .letter { width: 50px; height: 50px; font-size: 28px; }
+  /* 15 questions: keep the score table on one screen */
+  .sumtitle { font-size: 60px; }
+  .score { font-size: 40px; } .score b { font-size: 54px; }
+  #summary { gap: 16px; }
+  .sumtable { font-size: 24px; }
+  .sumtable td, .sumtable th { padding: 2px 22px; }
+  .sumtable .qq { max-width: 1050px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style></head>
+<body data-unit="unit3"><div id="stage"></div>
+<script src="lesson-data.js"></script>
+<script src="../engine.js"></script>
+<script>
+
+// Unit 3 layout helper: the player builds each question; this tidies it right after.
+// 1) the yellow "From your Practice Test" pill moves into the header row (saves a line);
+// 2) the player hides the answer area when the worked solution appears; on a question with a table or
+//    circle graph we keep the figure and put the solution beside it (only the choices stay hidden; the
+//    message already states the answer), so she can follow the steps while looking at the figure.
+function fitQuiz() {
+  const q = document.getElementById("quiz");
+  if (!q) return;
+  const head = q.querySelector(".qhead"), tag = q.querySelector(":scope > .qtag");
+  if (head && tag) head.insertBefore(tag, head.children[1] || null);
+  const area = q.querySelector(".answer.withfig");
+  if (!area || area.classList.contains("u3done") || !q.querySelector(".feedback .steps")) return;
+  area.classList.add("u3done");
+  const fb = q.querySelector(".feedback");
+  area.querySelectorAll(".choices, .fillcol, .keypad").forEach(e => e.style.display = "none");
+  area.style.display = "";
+  fb.classList.add("u3side");
+  area.appendChild(fb);
+}
+new MutationObserver(fitQuiz).observe(document.getElementById("stage"), { childList: true, subtree: true });
+
+const PAL = ["#ffd166", "#8ecae6", "#c3a6ff", "#06d6a0", "#9aa5b8", "#f4a261"];
+const title = (s, html, o = {}) => s.text(html, CX, 140, 64, { weight: 700, ...o });
+const frac = (n, d, size) => `<div style="display:inline-flex;flex-direction:column;align-items:center;font-size:${size}px;line-height:1.05;font-weight:500"><span>${n}</span><span style="border-top:5px solid #fff;padding:4px 8px 0;margin-top:4px">${d}</span></div>`;
+// A bar made of segments: [{w, bg, text, color, border}]
+const barHTML = (segs, h) => `<div style="display:flex;height:${h}px">` + segs.map(g =>
+  `<div style="width:${g.w}px;height:${h}px;box-sizing:border-box;background:${g.bg || "transparent"};border:${g.border || "3px solid #9aa5b8"};` +
+  `display:flex;align-items:center;justify-content:center;font-size:${g.size || 34}px;font-weight:600;color:${g.color || C.bg}">${g.text || ""}</div>`).join("") + `</div>`;
+// Circle graph: items [{label, pct, color}], clockwise from the top, labels inside the slices.
+function pieSVG(items, r, extra = "") {
+  const W = 2 * r + 20, c = r + 10;
+  let a = -Math.PI / 2, out = "", labels = "";
+  for (const it of items) {
+    const b = a + 2 * Math.PI * it.pct / 100, mid = (a + b) / 2;
+    const p = t => `${(c + r * Math.cos(t)).toFixed(1)} ${(c + r * Math.sin(t)).toFixed(1)}`;
+    out += `<path d="M${c} ${c} L${p(a)} A${r} ${r} 0 ${b - a > Math.PI ? 1 : 0} 1 ${p(b)} Z" fill="${it.color}" stroke="${C.bg}" stroke-width="4"/>`;
+    const lx = c + 0.6 * r * Math.cos(mid), ly = c + 0.6 * r * Math.sin(mid);
+    labels += `<text x="${lx.toFixed(1)}" y="${(ly - 6).toFixed(1)}" text-anchor="middle" font-size="32" font-weight="600" fill="${C.bg}">${it.label}</text>` +
+      `<text x="${lx.toFixed(1)}" y="${(ly + 30).toFixed(1)}" text-anchor="middle" font-size="32" font-weight="700" fill="${C.bg}">${it.pct}%</text>`;
+    a = b;
+  }
+  return `<svg width="${W}" height="${W}" viewBox="0 0 ${W} ${W}" font-family="Avenir Next, Avenir, sans-serif">${out}${extra}${labels}</svg>`;
+}
+const wedge = (r, p0, p1, fill, stroke) => {
+  const c = r + 10, a = -Math.PI / 2 + 2 * Math.PI * p0 / 100, b = -Math.PI / 2 + 2 * Math.PI * p1 / 100;
+  const p = t => `${(c + r * Math.cos(t)).toFixed(1)} ${(c + r * Math.sin(t)).toFixed(1)}`;
+  return `<path d="M${c} ${c} L${p(a)} A${r} ${r} 0 0 1 ${p(b)} Z" fill="${fill}" stroke="${stroke}" stroke-width="4"/>`;
+};
+
+function build() {
+
+scene("S1Title", s => {
+  const unit = s.text("UNIT 3", CX, 330, 44, { color: C.op, weight: 700, style: { letterSpacing: "0.3em" } });
+  const t = s.text("Percents", CX, 440, 132, { weight: 700 });
+  const sub = s.text("SHSAT Math with Victoria", CX, 550, 48, { color: C.dim });
+  unit.fadeIn(s.c(0)); t.write(s.c(0) + 0.3, 1.3); sub.fadeIn(s.c(0) + 1.5);
+  const stat = s.text(`Practice tests: <b style="color:${C.neg}">5 of 6</b> percent questions missed`, CX, 760, 50, { color: C.dim });
+  stat.fadeIn(s.c(1)); stat.fadeOut(s.c(2));
+  s.text("Turn every percent into a multiplier.", CX, 760, 56, { color: C.x, weight: 600 }).fadeIn(s.c(2) + 0.3);
+});
+
+scene("S2Meaning", s => {
+  title(s, `Percent means <span style="color:${C.x}">per hundred</span>`).fadeIn(s.c(0));
+  // 10 x 10 grid, 35 squares shaded (filled column by column so a left-to-right reveal fills it)
+  const cs = 44, g = 6, S = 10 * cs + 9 * g, GX = 400, GY = 560;
+  let base = "", fill = "";
+  for (let c = 0; c < 10; c++) for (let r = 0; r < 10; r++) {
+    const x = c * (cs + g), y = r * (cs + g);
+    base += `<rect x="${x + 1}" y="${y + 1}" width="${cs - 2}" height="${cs - 2}" rx="6" fill="rgba(255,255,255,0.05)" stroke="#9aa5b8" stroke-width="2"/>`;
+    if (c * 10 + r < 35) fill += `<rect x="${x}" y="${y}" width="${cs}" height="${cs}" rx="6" fill="${C.x}"/>`;
+  }
+  const grid = s.add(`<svg width="${S}" height="${S}">${base}</svg>`, GX, GY);
+  const shade = s.add(`<svg width="${S}" height="${S}">${fill}</svg>`, GX, GY);
+  const cap = s.text(`<b style="color:${C.x}">35</b> of 100 squares`, GX, GY + S / 2 + 50, 44, { color: C.dim });
+  const t1 = s.c(1);
+  grid.fadeIn(t1); shade.write(t1 + 0.8, 2.2); cap.fadeIn(t1 + 2.8);
+
+  const RY = 330;
+  const p35 = s.text("35%", 960, RY, 88, { weight: 600, color: C.x });
+  p35.fadeIn(t1 + 3.2);
+  const eqA = s.text("=", 1105, RY, 80), fr = s.add(frac("35", "100", 72), 1240, RY);
+  eqA.fadeIn(s.c(2)); fr.fadeIn(s.c(2) + 0.2);
+  const eqB = s.text("=", 1375, RY, 80), dec = s.text("0.35", 1530, RY, 88, { weight: 600, color: C.op });
+  eqB.fadeIn(s.c(3)); dec.fadeIn(s.c(3) + 0.2);
+
+  // the decimal point hops two places left
+  const t4 = s.c(4), DY = 570;
+  s.text("÷ 100:  move the point 2 places left", 1250, 480, 42, { color: C.op }).fadeIn(t4);
+  const d3 = s.text("3", 1200, DY, 110, { weight: 600 }), d5 = s.text("5", 1290, DY, 110, { weight: 600 });
+  const d0 = s.text("0", 1110, DY, 110, { weight: 600, color: C.dim });
+  const dot = s.add(`<div style="width:20px;height:20px;border-radius:50%;background:${C.x}"></div>`, 1335, DY + 34);
+  [d3, d5].forEach(it => it.fadeIn(t4 + 0.3)); dot.pop(t4 + 0.6);
+  const arc = `<svg width="96" height="44"><path d="M88 6 Q48 46 8 6" stroke="${C.x}" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M8 6 L24 10 M8 6 L13 21" stroke="${C.x}" stroke-width="5" stroke-linecap="round"/></svg>`;
+  const a1 = s.add(arc, 1290, DY + 82), a2 = s.add(arc, 1200, DY + 82);
+  dot.moveTo(t4 + 1.6, 0.6, 1245, DY + 34); a1.pop(t4 + 1.7);
+  dot.moveTo(t4 + 2.6, 0.6, 1155, DY + 34); a2.pop(t4 + 2.7);
+  d0.pop(t4 + 3.4); d5.shift(t4 + 3.6, 0.5, -26, 0);
+
+  const t5 = s.c(5);
+  const e4 = s.eq("4% = 0.04", 1180, 770, 72); e4.fadeIn(t5);
+  s.text(`<span style="color:${C.op}">✓</span>&nbsp;&nbsp;&nbsp;<span style="text-decoration:line-through;text-decoration-color:${C.neg};text-decoration-thickness:5px">0.4</span> <span style="font-size:40px">✗</span>`, e4.R().r + 40, 770, 64, { color: C.neg, ax: 0 }).fadeIn(t5 + 1.6);
+  const e5 = s.eq("0.5% = 0.005", 1180, 890, 72); e5.fadeIn(s.c(6));
+  s.text("half of 1%", e5.R().r + 50, 890, 44, { color: C.dim, ax: 0 }).fadeIn(s.c(6) + 1.2);
+});
+
+scene("S3Of", s => {
+  title(s, `<span style="color:${C.op}">“of”</span> means multiply`).fadeIn(s.c(0));
+  const q = s.text(`What is 15% <span style="color:${C.op}">of</span> 240?`, CX, 270, 76);
+  q.fadeIn(s.c(1));
+  const e = s.eq("0.15 × 240 = 36", CX, 390, 80); e.fadeIn(s.c(2) + 0.6);
+  s.ring(e.R(), C.x, 14).pop(s.c(2) + 3.0);
+
+  // bar model: 240 split into ten 10% pieces of 24
+  const X0 = 210, SW = 150, BY = 600, BH = 90;
+  const bar = s.add(barHTML(Array.from({ length: 10 }, (_, i) => ({ w: SW, text: i === 1 ? `<span style="margin-left:75px">24</span>` : "24", color: C.dim, size: 32 })), BH), X0, BY, { ax: 0 });
+  const top = s.text(`all 240 = 100%`, CX, 520, 42, { color: C.dim });
+  const t3 = s.c(3);
+  bar.fadeIn(t3); top.fadeIn(t3 + 0.3);
+  const ten = s.add(barHTML([{ w: SW, bg: C.x, border: `3px solid ${C.x}`, text: "10%", size: 32 }], BH), X0, BY, { ax: 0 });
+  const tenL = s.text("10% = 24", X0 + SW / 2, 700, 44, { color: C.x, weight: 600 });
+  ten.pop(s.c(4) + 1.2); tenL.fadeIn(s.c(4) + 1.6);
+  const five = s.add(barHTML([{ w: SW / 2, bg: "#ffe3a3", border: `3px solid #ffe3a3`, text: "5%", size: 28 }], BH), X0 + SW, BY, { ax: 0 });
+  const fiveL = s.text("5% = 12", X0 + SW * 1.25, 760, 44, { color: "#ffe3a3", weight: 600 });
+  five.pop(s.c(5)); fiveL.fadeIn(s.c(5) + 0.4);
+  const sum = s.text(`24 + 12 = 36 <span style="color:${C.op}">✓</span>`, 1250, 730, 64, { weight: 600 });
+  sum.fadeIn(s.c(6));
+
+  const t7 = s.c(7);
+  [bar, top, ten, tenL, five, fiveL, sum].forEach(it => it.fadeOut(t7, 0.5));
+  const rest = s.add(barHTML([
+    { w: 225, bg: C.op, border: `3px solid ${C.op}`, text: "15%" },
+    { w: 1275, bg: "rgba(142,202,230,0.25)", border: `3px solid ${C.y}`, text: "85%: the rest", color: "#fff" }], 100), X0, 660, { ax: 0 });
+  rest.fadeIn(t7 + 0.6);
+  s.text("in the band", X0 + 112, 750, 40, { color: C.op, weight: 600 }).fadeIn(t7 + 1.2);
+  s.text("not in the band", X0 + 225 + 637, 750, 40, { color: C.y, weight: 600 }).fadeIn(t7 + 3.0);
+  s.text("The SHSAT loves to ask about the rest.", CX, 880, 52, { color: C.x, weight: 600 }).fadeIn(t7 + 5.0);
+});
+
+scene("S4Multiplier", s => {
+  title(s, "Changes are multipliers").fadeIn(s.c(0));
+  const X0 = 200, QW = 225, EX = 1560;
+  const lab1 = s.text("$80 price", X0, 235, 42, { color: C.dim, ax: 0 });
+  const bar1 = s.add(barHTML([0, 1, 2, 3].map(() => ({ w: QW, text: "25%", color: C.dim })), 100), X0, 310, { ax: 0 });
+  lab1.fadeIn(s.c(1)); bar1.fadeIn(s.c(1));
+  const t2 = s.c(2);
+  const pay = s.add(barHTML([{ w: 3 * QW, bg: C.op, border: `3px solid ${C.op}`, text: "you pay 75%", size: 40 }], 100), X0, 310, { ax: 0 });
+  const off = s.add(barHTML([{ w: QW, bg: "repeating-linear-gradient(45deg, rgba(239,71,111,0.55) 0 14px, rgba(239,71,111,0.2) 14px 28px)", border: `3px solid ${C.neg}`, text: "−25%", color: "#fff", size: 40 }], 100), X0 + 3 * QW, 310, { ax: 0 });
+  off.fadeIn(t2, 0.5, 0); pay.fadeIn(t2 + 1.4, 0.6, 0);
+  s.eq("80 × 0.75 = 60", EX, 310, 72).fadeIn(s.c(3));
+
+  const t4 = s.c(4);
+  const lab2 = s.text("$60 price", X0, 495, 42, { color: C.dim, ax: 0 });
+  const bar2 = s.add(barHTML([{ w: 900, bg: "rgba(142,202,230,0.25)", border: `3px solid ${C.y}`, text: "100%", color: "#fff", size: 40 }], 100), X0, 570, { ax: 0 });
+  const tax = s.add(barHTML([{ w: 72, bg: C.x, border: `3px solid ${C.x}`, text: "", size: 26 }], 100), X0 + 900, 570, { ax: 0 });
+  const taxL = s.text("+8% tax", X0 + 936, 495, 40, { color: C.x, weight: 600 });
+  const tot = s.text(`you pay <b style="color:${C.x}">108%</b>`, X0 + 486, 665, 44, { color: "#fff" });
+  lab2.fadeIn(t4); bar2.fadeIn(t4); tax.pop(t4 + 2.6); taxL.fadeIn(t4 + 2.6); tot.fadeIn(t4 + 4.2);
+  s.eq("60 × 1.08 = 64.80", EX, 570, 72).fadeIn(s.c(5));
+
+  const t6 = s.c(6);
+  s.text(`Going up:&nbsp; <b style="color:${C.op}">× (1 + p)</b>`, 560, 820, 56).fadeIn(t6);
+  s.text(`Going down:&nbsp; <b style="color:${C.neg}">× (1 − p)</b>`, 1360, 820, 56).fadeIn(t6 + 2.0);
+  s.text("8% tax → × 1.08", 560, 905, 40, { color: C.dim }).fadeIn(t6 + 0.8);
+  s.text("25% off → × 0.75", 1360, 905, 40, { color: C.dim }).fadeIn(t6 + 2.8);
+});
+
+scene("S5Successive", s => {
+  title(s, "Up 20%, then down 20%").fadeIn(s.c(0));
+  const ask = s.text("Back where it started?", CX, 225, 48, { color: C.x });
+  ask.fadeIn(s.c(0) + 1.0); ask.fadeOut(s.c(1));
+  const BASE = 830, K = 4, xs = [500, 880, 1260];
+  const col = (x, v, bg, bd, txt) => s.add(`<div style="width:200px;height:${v * K}px;box-sizing:border-box;background:${bg};border:3px solid ${bd};border-radius:10px 10px 0 0;display:flex;justify-content:center;padding-top:22px;font-size:52px;font-weight:700;color:${C.bg}">${txt}</div>`, x, BASE, { ay: 1 });
+  const c1 = col(xs[0], 100, C.y, C.y, "$100"), c2 = col(xs[1], 120, C.op, C.op, "$120"), c3 = col(xs[2], 96, C.neg, C.neg, "$96");
+  const under = (x, t, c) => s.text(t, x, 875, 40, { color: c, weight: 600 });
+  const u1 = under(xs[0], "start", C.dim), u2 = under(xs[1], "up 20%", C.op), u3 = under(xs[2], "down 20%", C.neg);
+  const dash = s.add(`<div style="width:960px;border-top:4px dashed rgba(255,255,255,0.45)"></div>`, xs[0] - 100, BASE - 400 * 1, { ax: 0 });
+  const t1 = s.c(1);
+  c1.fadeIn(t1); u1.fadeIn(t1); dash.fadeIn(t1 + 1.0, 0.6, 0);
+  const arrow = (x, color, lab) => {
+    const a = s.add(`<svg width="170" height="40"><path d="M6 20 H150 M134 6 L152 20 L134 34" stroke="${color}" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`, x, 640);
+    const l = s.text(lab, x, 590, 48, { color, weight: 700 });
+    return [a, l];
+  };
+  const t2 = s.c(2);
+  arrow(690, C.op, "× 1.2").forEach(it => it.fadeIn(t2));
+  c2.fadeIn(t2 + 1.0); u2.fadeIn(t2 + 1.0);
+  const t3 = s.c(3);
+  arrow(1070, C.neg, "× 0.8").forEach(it => it.fadeIn(t3));
+  s.text(`20% of <b>120</b> = <b>24</b>`, 1400, 600, 44, { color: C.neg, ax: 0 }).fadeIn(t3 + 1.6);
+  s.text(`not 20`, 1400, 660, 40, { color: C.dim, ax: 0 }).fadeIn(t3 + 3.2);
+  c3.fadeIn(s.c(4)); u3.fadeIn(s.c(4));
+  const low = s.text("4% lower!", 1400, 470, 54, { color: C.neg, weight: 700, ax: 0 });
+  low.pop(s.c(5));
+  s.text(`1.2 × 0.8 = <b style="color:${C.neg}">0.96</b>&nbsp;&nbsp;<span style="color:${C.dim};font-size:44px">→ 4% less than the start</span>`, CX, 950, 60).fadeIn(s.c(6));
+});
+
+scene("S6Backward", s => {
+  const t0 = s.c(0), t5 = s.c(5);
+  const ttl = title(s, "Working backward"); ttl.fadeIn(t0); ttl.fadeOut(t5);
+  const part1 = [];
+  const add = it => (part1.push(it), it);
+  add(s.text("Know the after? Divide to find the before.", CX, 225, 44, { color: C.dim })).fadeIn(t0 + 1.0);
+  add(s.text(`After a <b style="color:${C.neg}">20% discount</b>, a shirt costs <b>$36</b>. Original price?`, CX, 315, 54)).fadeIn(s.c(1));
+  const X0 = 510;
+  const segs = Array.from({ length: 10 }, (_, i) => i < 8
+    ? { w: 90, bg: C.op, border: `3px solid ${C.bg}`, text: "" }
+    : { w: 90, bg: "transparent", border: `3px dashed ${C.neg}`, text: "" });
+  const t2 = s.c(2);
+  add(s.add(barHTML(segs, 90), X0, 450, { ax: 0 })).fadeIn(t2);
+  add(s.text("$36 = 80%", X0 + 360, 450, 44, { color: C.bg, weight: 700, style: { background: C.op, padding: "0 14px" } })).fadeIn(t2 + 0.6);
+  add(s.text("20% off", X0 + 810, 450, 32, { color: C.neg, weight: 600 })).fadeIn(t2 + 0.6);
+  add(s.text(`original price = <span class="x">x</span> = 100%`, CX, 540, 40, { color: C.dim })).fadeIn(t2 + 1.6);
+  const t3 = s.c(3);
+  const e1 = add(s.eq("0.8x = 36", CX, 650, 76)); e1.fadeIn(t3);
+  const e2 = add(s.eq("x = 36 ÷ 0.8 = 45", CX, 760, 76)); e2.fadeIn(t3 + 2.2);
+  add(s.ring(e2.R(), C.x, 12)).pop(t3 + 4.6);
+  add(s.text(`✗&nbsp; Not 36 + 20% of 36 = 43.20`, CX, 885, 52, { color: C.neg, weight: 600 })).fadeIn(s.c(4));
+  part1.forEach(it => it.fadeOut(t5, 0.5));
+
+  const ttl2 = title(s, "Percent change"); ttl2.fadeIn(t5 + 0.4);
+  s.text(`$60 <span style="color:${C.op}">→</span> $75`, CX, 300, 96, { weight: 600 }).fadeIn(t5 + 0.8);
+  s.text(`percent change = change ÷ <b style="color:${C.x}">original</b>`, CX, 430, 54, { color: "#fff" }).fadeIn(t5 + 1.6);
+  const t6 = s.c(6);
+  s.eq("change = 75 − 60 = 15", CX, 570, 68).fadeIn(t6);
+  const e3 = s.eq("15 ÷ 60 = 0.25 = 25%", CX, 690, 68); e3.fadeIn(t6 + 2.0);
+  s.ring(e3.R(), C.x, 12).pop(t6 + 4.4);
+  s.text(`Divide by the original (60), not the new amount (75).`, CX, 850, 46, { color: C.x }).fadeIn(t6 + 5.0);
+});
+
+scene("S7Charts", s => {
+  const t5 = s.c(5);
+  title(s, "Tables and circle graphs").fadeIn(s.c(0));
+  const rows = [["0", 10], ["1", 25], ["2", 30], ["3", 15], ["4", 12], ["5 or more", 8]];
+  const cell = "border:3px solid #9aa5b8;padding:10px 40px;text-align:center";
+  const tbl = s.add(`<table style="border-collapse:collapse;font-size:42px">` +
+    `<tr><td style="${cell};color:${C.dim};font-size:34px">Hours of reading<br>each week</td><td style="${cell};color:${C.dim};font-size:34px">Percent of<br>students</td></tr>` +
+    rows.map(([h, p], i) => `<tr class="r${i}"><td style="${cell}">${h}</td><td style="${cell}">${p}%</td></tr>`).join("") + `</table>`, 520, 600);
+  const cap = s.text("400 students", 520, 250, 44, { color: C.dim });
+  const t1 = s.c(1);
+  cap.fadeIn(t1); tbl.fadeIn(t1 + 0.3);
+  const r3 = tbl.rect("tr.r3"), r5 = tbl.rect("tr.r5");
+  const hi = s.ring({ cx: (r3.l + r3.r) / 2, cy: (r3.t + r5.b) / 2, w: r3.w, h: r5.b - r3.t }, C.x, 8);
+  const t2 = s.c(2);
+  hi.pop(t2 + 1.0);
+  const RX = 1390;
+  const L = [
+    s.text(`At least 3 = <b style="color:${C.x}">3, 4, or 5+</b>`, RX, 360, 50),
+    s.text("15% + 12% + 8% = 35%", RX, 490, 62),
+    s.text("0.35 × 400 = 140", RX, 620, 62),
+    s.text("140 students", RX, 740, 56, { color: C.op, weight: 700 }),
+  ];
+  L[0].fadeIn(t2 + 1.4); L[1].fadeIn(s.c(3)); L[2].fadeIn(s.c(4)); L[3].pop(s.c(4) + 2.4);
+  [cap, tbl, hi, ...L].forEach(it => it.fadeOut(t5, 0.5));
+
+  const R = 250;
+  const items = [{ label: "Rent", pct: 30, color: PAL[0] }, { label: "Food", pct: 25, color: PAL[1] }, { label: "Fun", pct: 20, color: PAL[2] },
+    { label: "Savings", pct: 15, color: PAL[3] }, { label: "Other", pct: 10, color: PAL[4] }];
+  const pie = s.add(pieSVG(items, R), 620, 600);
+  const cut = s.add(`<svg width="${2 * R + 20}" height="${2 * R + 20}">${wedge(R, 27, 30, C.neg, C.bg)}</svg>`, 620, 600);
+  const cutL = s.text("−3", 620 + (R + 45) * Math.cos(-Math.PI / 2 + 2 * Math.PI * 0.285), 600 + (R + 45) * Math.sin(-Math.PI / 2 + 2 * Math.PI * 0.285), 48, { color: C.neg, weight: 700 });
+  pie.fadeIn(t5 + 0.5);
+  const RX2 = 1380;
+  s.text(`Rent: <b style="color:${C.x}">30%</b>, cut by 10%`, RX2, 360, 54).fadeIn(t5 + 1.6);
+  const t6 = s.c(6);
+  s.text("10% of 30 = 3 points", RX2, 490, 60).fadeIn(t6);
+  cut.fadeIn(t6 + 1.2, 0.5, 0); cutL.pop(t6 + 1.4);
+  s.text(`30% → <b style="color:${C.x}">27%</b>`, RX2, 620, 76, { weight: 600 }).fadeIn(t6 + 2.6);
+  s.text(`not <span style="text-decoration:line-through;text-decoration-thickness:5px">20%</span> ✗`, RX2, 740, 52, { color: C.neg, weight: 600 }).fadeIn(t6 + 4.6);
+});
+
+function zooCard(s, x, y, scale = 1, show = false, hi = false) {
+  const html = `<div class="card" style="width:1500px;white-space:normal;text-align:left;padding:34px 60px">` +
+    `<div style="font-size:34px;color:${C.dim};margin-bottom:18px">Practice Test 1 · Question 6</div>` +
+    `<div style="font-size:50px;line-height:1.3">In a zoo with 640 animals, 35% are mammals, half of which are males. Of the male mammals, 25% are over 2 years old. How many male mammals are <span class="ask"${hi ? ` style="color:${C.x};text-decoration:underline;text-decoration-thickness:3px;text-underline-offset:6px"` : ""}>2 years old or younger</span>?</div>` +
+    `<div style="font-size:46px;margin-top:22px;display:flex;gap:110px;color:#fff"><span><b style="color:${C.dim}">A.</b> 28</span><span><b style="color:${C.dim}">B.</b> 84</span><span><b style="color:${C.dim}">C.</b> 112</span><span><b style="color:${C.dim}">D.</b> 224</span></div></div>`;
+  const it = s.add(html, x, y, { show });
+  it.base.scale = scale;
+  it.apply(it.base);
+  return it;
+}
+
+scene("S8Question", s => {
+  s.text("Your real question", CX, 140, 56, { color: C.x, weight: 700 }).fadeIn(s.c(0));
+  zooCard(s, CX, 480).fadeIn(s.c(0) + 0.3);
+  s.text(`<span style="color:${C.dim}">Your answer:</span> <b style="color:${C.neg}">A. 28 ✗</b> <span style="display:inline-block;width:90px"></span><span style="color:${C.dim}">Time:</span> <b style="color:${C.neg}">5 min 9 sec</b>`, CX, 820, 54).fadeIn(s.c(1));
+  s.text(`<span style="color:${C.dim}">Goal:</span> <b style="color:${C.op}">under 2 minutes</b>`, CX, 925, 58).pop(s.c(2));
+});
+
+scene("S9Solve", s => {
+  const X0 = 140, BW = 900, BH = 84, EX = 1500, ys = [300, 480, 660];
+  const t0 = s.c(0);
+  s.text("Each answer becomes the next whole.", CX, 160, 50, { color: C.x, weight: 600 }).fadeIn(t0);
+  const row = (y, txt) => s.add(barHTML([{ w: BW, text: txt, color: C.dim, size: 34 }], BH), X0, y, { ax: 0 });
+  const funnel = (y0, w0, y1) => s.add(`<svg width="${BW}" height="${y1 - y0}"><polygon points="0,0 ${w0},0 ${BW},${y1 - y0} 0,${y1 - y0}" fill="rgba(6,214,160,0.14)"/></svg>`, X0, y0, { ax: 0, ay: 0 });
+  const r1 = row(ys[0], `<span style="margin-left:330px">640 animals</span>`); r1.fadeIn(t0 + 0.8);
+  const t1 = s.c(1);
+  s.add(barHTML([{ w: 315, bg: C.op, border: `3px solid ${C.op}`, text: "35%: mammals", size: 32 }], BH), X0, ys[0], { ax: 0 }).fadeIn(t1, 0.6, 0);
+  s.eq("0.35 × 640 = 224", EX, ys[0], 64).fadeIn(t1 + 1.2);
+  const t2 = s.c(2);
+  funnel(ys[0] + BH / 2, 315, ys[1] - BH / 2).fadeIn(t2, 0.5, 0);
+  row(ys[1], `<span style="margin-left:450px">224 mammals</span>`).fadeIn(t2 + 0.2);
+  s.add(barHTML([{ w: 450, bg: C.op, border: `3px solid ${C.op}`, text: "half: males", size: 32 }], BH), X0, ys[1], { ax: 0 }).fadeIn(t2 + 1.0, 0.6, 0);
+  s.eq("224 ÷ 2 = 112", EX, ys[1], 64).fadeIn(t2 + 1.8);
+  const t3 = s.c(3);
+  funnel(ys[1] + BH / 2, 450, ys[2] - BH / 2).fadeIn(t3, 0.5, 0);
+  row(ys[2], "").fadeIn(t3);
+  s.add(barHTML([{ w: 225, bg: C.neg, border: `3px solid ${C.neg}`, text: "25%: over 2", color: "#fff", size: 30 }], BH), X0, ys[2], { ax: 0 }).fadeIn(t3 + 1.0, 0.6, 0);
+  s.add(barHTML([{ w: 675, bg: C.x, border: `3px solid ${C.x}`, text: "the rest, 75%: 2 or younger", size: 32 }], BH), X0 + 225, ys[2], { ax: 0 }).fadeIn(t3 + 3.4, 0.6, 0);
+  s.text("112 male mammals", X0 + BW / 2, ys[2] + 75, 34, { color: C.dim }).fadeIn(t3 + 0.4);
+  s.eq("0.75 × 112 = 84", EX, ys[2], 64).fadeIn(s.c(4));
+  const ans = s.text(`Answer: <b style="color:${C.x}">B. 84</b>`, CX, 860, 72, { weight: 600 });
+  ans.pop(s.c(5));
+  s.ring(ans.rect(), C.x, 20).pop(s.c(5) + 0.4);
+});
+
+scene("S10Check", s => {
+  const card = zooCard(s, CX, 255, 0.55);
+  card.fadeIn(s.c(0));
+  const X0 = 360, BY = 500;
+  s.add(barHTML([{ w: 300, bg: C.neg, border: `3px solid ${C.neg}`, text: "28: over 2", color: "#fff", size: 36 },
+    { w: 900, bg: C.x, border: `3px solid ${C.x}`, text: "84: 2 or younger", size: 40 }], 96), X0, BY, { ax: 0 }).fadeIn(s.c(0) + 0.5);
+  const t1 = s.c(1);
+  s.text("25% of 112 = 28", X0 + 150, 600, 40, { color: C.neg, weight: 600 }).fadeIn(t1);
+  s.text("← your answer", X0 + 300 + 30, 600, 40, { color: C.neg, ax: 0 }).fadeIn(t1 + 2.0);
+  s.text("Right math, wrong question.", CX, 710, 60, { color: C.neg, weight: 700 }).fadeIn(s.c(2));
+  const t3 = s.c(3);
+  zooCard(s, CX, 255, 0.55, false, true).fadeIn(t3 + 0.8, 0.6, 0);
+  s.ring({ cx: X0 + 300 + 450, cy: BY, w: 900, h: 96 }, C.x, 10).pop(t3 + 2.4);
+  s.text(`28 + 84 = 112 <span style="color:${C.op}">✓ the whole group</span>`, CX, 815, 56, { weight: 600 }).fadeIn(s.c(4));
+  s.text(`One line:&nbsp; 640 × 0.35 × 0.5 × 0.75 = <b style="color:${C.x}">84</b>`, CX, 925, 56).fadeIn(s.c(5));
+});
+
+scene("S11Recap", s => {
+  s.text("The recipe", CX, 140, 76, { weight: 700 }).fadeIn(s.c(0));
+  const lines = [
+    "Change the percent to a decimal:  35% → 0.35",
+    "“Of” means multiply. Chain the steps.",
+    "A change is a multiplier:  up × (1 + p),  down × (1 − p)",
+    "Working backward? Divide by the multiplier.",
+    "Reread the question: which group? which whole?",
+  ];
+  lines.forEach((l, i) => s.badge(i + 1, `<span style="color:#fff;font-weight:500">${esc(l)}</span>`, 250, 280 + i * 120, { size: 46 })
+    .fadeIn(s.c(i + 1), 0.6, 0).set(s.c(i + 1), { sx: -30 }).tw(s.c(i + 1), 0.6, { sx: 0 }));
+  s.text("Next: Workbook Unit 3 practice.  You've got this!", CX, 900, 54, { color: C.op, weight: 700 }).pop(s.c(6));
+});
+
+}
+
+</script>
+<script src="../boot.js"></script>
+</body></html>

@@ -1,0 +1,568 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><title>Unit 5 · Probability &amp; Averages</title>
+<link rel="stylesheet" href="../lesson.css">
+<style>
+  /* Unit 5 extras: stacked fractions, math rows, and a compact score table (16 questions). */
+  .fr { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; font-size: 0.9em; line-height: 1.08; margin: 0 0.12em; }
+  .fr > span:first-child { border-bottom: 0.07em solid currentColor; padding: 0 0.14em 0.05em; }
+  .fr > span:last-child { padding-top: 0.05em; }
+  .mrow { white-space: nowrap; }
+  .qcard { width: 1500px; white-space: normal; text-align: left; }
+  #summary { gap: 14px; padding-top: 100px; padding-bottom: 30px; }
+  #summary .sumtitle { font-size: 60px; }
+  #summary .score { font-size: 40px; } #summary .score b { font-size: 52px; }
+  #summary .sumtable { font-size: 22px; }
+  #summary .sumtable td, #summary .sumtable th { padding: 3px 20px; }
+  #summary .sumtable td.qq { max-width: 980px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+</style></head>
+<body data-unit="unit5"><div id="stage"></div>
+<script src="lesson-data.js"></script>
+<script src="../engine.js"></script>
+<script>
+
+const RED = C.neg, YEL = C.x, BLU = "#5aa9e6";
+const fr = (a, b, color) => `<span class="fr"${color ? ` style="color:${color}"` : ""}><span>${a}</span><span>${b}</span></span>`;
+const col = (c, t) => `<span style="color:${c}">${t}</span>`;
+const marble = (c, d = 76) => `<div style="width:${d}px;height:${d}px;border-radius:50%;background:radial-gradient(circle at 34% 30%, rgba(255,255,255,.8) 0, rgba(255,255,255,0) 30%), ${c};box-shadow:inset -7px -9px 0 rgba(0,0,0,.22)"></div>`;
+const bagHtml = (w, h) => `<div style="width:${w}px;height:${h}px;border:5px solid ${C.dim};border-top:none;border-radius:0 0 70px 70px;background:rgba(255,255,255,0.035)"></div>`;
+// A math row (text with inline fractions), anchored left unless o.ax says otherwise.
+const row = (s, html, x, y, size, o = {}) => s.text(`<div class="mrow">${html}</div>`, x, y, size, { ax: 0, ...o });
+
+// ---- Manim-style helpers for this unit ----
+// Move an Item's base position (build time, before any tween).
+const place = (it, x, y) => { it.base.x = x; if (y !== undefined) it.base.y = y; it.apply(it.base); return it; };
+const partsOf = e => e.all || [e];
+// A stacked fraction whose numerator N, bar B and denominator D are separate Items, so counts can fly into it,
+// tick down in place, or be cancelled. (x, y) is the centre of the bar.
+function fp(s, num, den, x, y, size = 64, o = {}) {
+  const g = size * 0.62, wt = o.weight || 500;
+  const N = s.text(String(num), x, y - g, size, { color: o.nc || o.color || "#fff", weight: wt });
+  const D = s.text(String(den), x, y + g, size, { color: o.dc || o.color || "#fff", weight: wt });
+  const w = Math.max(N.rect().w, D.rect().w, size * 0.55) + size * 0.3;
+  const B = s.add(`<div style="width:${w}px;height:${Math.max(4, Math.round(size * 0.075))}px;border-radius:3px;background:${o.bc || o.color || "#fff"}"></div>`, x, y);
+  const f = { N, B, D, all: [N, B, D], w, size, y,
+    at(nx) { f.all.forEach(p => place(p, nx)); return f; },
+    fadeIn(t, d = 0.6, dy = 0) { f.all.forEach(p => p.fadeIn(t, d, dy)); return f; },
+    fadeOut(t, d = 0.4) { f.all.forEach(p => p.fadeOut(t, d)); return f; },
+    show(t) { f.all.forEach(p => p.show(t)); return f; },
+    pop(t) { f.all.forEach(p => p.pop(t)); return f; },
+    box() { const a = N.rect(), b = D.rect(), c = B.rect(); return { l: Math.min(a.l, c.l), r: Math.max(a.r, c.r), t: a.t, b: b.b, cx: c.cx, cy: c.cy, w: c.w, h: b.b - a.t }; } };
+  return f;
+}
+// A line of math laid out left to right: strings become text Items, [num, den, opts] become fp fractions.
+// Anchored at x by o.ax (0 = left edge, 0.5 = centre). Returns the pieces in order.
+function seq(s, x, y, size, specs, o = {}) {
+  const gap = size * (o.gap ?? 0.26);
+  const els = specs.map(sp => Array.isArray(sp) ? fp(s, sp[0], sp[1], 0, y, sp[3] || size, sp[2] || {})
+    : s.text(sp, 0, y, size, { color: o.color, weight: o.weight }));
+  const ws = els.map(e => e.N ? e.w : e.rect().w);
+  const total = ws.reduce((a, b) => a + b, 0) + gap * (els.length - 1);
+  let cx = x - total * (o.ax ?? 0);
+  els.forEach((e, i) => { const c = cx + ws[i] / 2; e.N ? e.at(c) : place(e, c); cx += ws[i] + gap; });
+  els.fadeIn = (t, d = 0.6, dy = 0) => { els.forEach(e => e.fadeIn(t, d, dy)); return els; };
+  els.right = () => cx - gap;
+  return els;
+}
+const boxOf = e => e.N ? e.box() : e.rect();
+// A ghost copy of `html` flies from box `from` (drawn at font size fs) onto the Item `to` (font size ts), which then appears.
+function fly(s, html, from, fs, to, ts, t, d = 0.9, o = {}) {
+  const r = to.rect ? to.rect() : to;
+  const g = s.text(html, from.cx, from.cy, fs, { color: o.color || "#fff", weight: o.weight || 500 });
+  g.show(t); g.tw(t, d, { x: r.cx, y: r.cy, scale: ts / fs }, "inout"); g.tw(t + d - 0.05, 0.15, { opacity: 0 }, "linear");
+  if (!o.keep && to.tw) to.tw(t + d - 0.1, 0.2, { opacity: 1 }, "linear");
+  return g;
+}
+// A number changes in place: the old one rolls up and out, the new one rolls up into its place.
+function tick(oldIt, newIt, t, d = 0.5) {
+  const h = oldIt.rect().h * 0.6;
+  oldIt.tw(t, d, { opacity: 0, oy: -h });
+  newIt.set(t, { oy: h }); newIt.tw(t, d, { opacity: 1, oy: 0 });
+}
+// Copy a whole fraction (or any pieces) to a new spot: ghosts of each part slide onto the matching new part.
+function copyTo(s, fromParts, toParts, t, d = 0.9) {
+  fromParts.forEach((f, i) => {
+    const to = toParts[i], r = f.rect(), tr = to.rect(), st = f.state(t);
+    const g = s.add(f.el.innerHTML, r.cx, r.cy + st.oy, { style: { cssText: f.el.style.cssText } });
+    g.el.style.cssText = f.el.style.cssText;
+    g.ax = 0.5; g.ay = 0.5; g.el.style.transformOrigin = "50% 50%";
+    g.show(t); g.tw(t, d, { x: tr.cx, y: tr.cy }, "inout"); g.tw(t + d - 0.05, 0.15, { opacity: 0 }, "linear");
+    to.tw(t + d - 0.1, 0.2, { opacity: 1 }, "linear");
+  });
+}
+// Separate Items laid exactly over pieces of a (hidden) text Item, e.g. the "3", "+", "4" of "3 + 4".
+function pieces(s, it, subs, size, o = {}) {
+  let from = 0;
+  return subs.map(([sub, html]) => {
+    const b = s.partBox(it, sub, 0, true);
+    return s.text(html ?? sub, b.cx, b.cy, size, { color: o.color, weight: o.weight });
+  });
+}
+// A small operation label (like "÷ 6" or "− 1") written beside a numerator or denominator.
+const side = (s, html, it, t, color = C.op, size = 38, dx = 14) => {
+  const r = it.rect();
+  return s.text(html, r.r + dx, r.cy, size, { color, weight: 700, ax: 0 }).pop(t);
+};
+
+// A bag of marbles: rows = [[color, count, y], ...]; returns {bag, groups: [[items], ...]}.
+function marbleBag(s, x, y, w, h, rows, d = 76, gap = 96) {
+  const bag = s.add(bagHtml(w, h), x, y);
+  const groups = rows.map(([c, n, ry]) => Array.from({ length: n }, (_, i) => s.add(marble(c, d), x + (i - (n - 1) / 2) * gap, ry)));
+  return { bag, groups };
+}
+
+// A real test question as a card.
+function qcard(s, x, y, head, body, choices, o = {}) {
+  const ch = choices.map((c, i) => `<span class="ch-${"ABCD"[i]}" style="display:inline-flex;align-items:center;gap:12px"><b style="color:${C.dim}">${"ABCD"[i]}.</b>${c}</span>`).join("");
+  const html = `<div class="card qcard"><div style="font-size:34px;color:${C.dim};margin-bottom:16px">${head}</div>` +
+    `<div style="font-size:44px;line-height:1.38">${body}</div>` +
+    `<div style="display:flex;gap:90px;margin-top:26px;font-size:46px;align-items:center">${ch}</div></div>`;
+  return s.add(html, x, y, o);
+}
+
+function build() {
+
+scene("S1Title", s => {
+  const unit = s.text("UNIT 5", CX, 330, 44, { color: C.op, weight: 700, style: { letterSpacing: "0.3em" } });
+  const title = s.text("Probability &amp; Averages", CX, 440, 120, { weight: 700 });
+  const sub = s.text("SHSAT Math with Victoria", CX, 550, 48, { color: C.dim });
+  unit.fadeIn(s.c(0)); title.write(s.c(0) + 0.3, 1.3); sub.fadeIn(s.c(0) + 1.5);
+  const stat = s.text(`Practice tests: <b style="color:${C.neg}">8 of 13</b> questions on this topic missed`, CX, 760, 50, { color: C.dim });
+  stat.fadeIn(s.c(1)); stat.fadeOut(s.c(2));
+  s.text(`Count carefully. <span style="color:${C.op}">Think in totals.</span>`, CX, 760, 60, { color: C.x, weight: 600 }).fadeIn(s.c(2) + 0.3);
+});
+
+scene("S2Basics", s => {
+  const top = seq(s, CX, 215, 58, ["Probability =", [`<span style="color:${C.op}">what you want</span>`, "everything possible", {}, 46]], { ax: 0.5, weight: 600 });
+  top[0].fadeIn(s.c(0)); top[1].B.fadeIn(s.c(0) + 0.6, 0.5, 0); top[1].N.fadeIn(s.c(0) + 2.6); top[1].D.fadeIn(s.c(0) + 3.7);
+  const BX = 470;
+  const { bag, groups: [r, y, b] } = marbleBag(s, BX, 640, 560, 380, [[RED, 3, 530], [YEL, 4, 635], [BLU, 5, 740]]);
+  const t1 = s.c(1);
+  bag.fadeIn(t1);
+  [...r, ...y, ...b].forEach((it, i) => it.pop(t1 + 0.3 + i * 0.12));
+  // Counts, each one said and shown, then the total.
+  const cnt = seq(s, BX, 405, 42, [col(RED, "3"), col(RED, "red") + " +", col(YEL, "4"), col(YEL, "yellow") + " +", col(BLU, "5"), col(BLU, "blue") + " =", "<b>12</b>"], { ax: 0.5 });
+  const [n3, , n4, , n5, , n12] = cnt;
+  [[0, 1, 1.0, r], [2, 3, 2.0, y], [4, 5, 3.1, b]].forEach(([i, j, dt, g]) => { cnt[i].fadeIn(t1 + dt, 0.4, 0); cnt[j].fadeIn(t1 + dt, 0.4, 0); g.forEach(it => it.pulse(t1 + dt, 1.15)); });
+  n12.pop(s.c(2));
+
+  // P(red): 3 and 12 fly from the counts into a real fraction, then it simplifies by 3.
+  const RX = 940, FS = 62;
+  const [pa, fa, , ea, fa2] = seq(s, RX, 420, 60, [`P(${col(RED, "red")}) =`, ["3", "12", { nc: RED }, FS], `<span style="display:inline-block;width:64px"></span>`, "=", ["1", "4", {}, FS]]);
+  const t3 = s.c(3);
+  pa.fadeIn(t3 + 0.9); fa.B.fadeIn(t3 + 1.1, 0.4, 0); r.forEach(it => it.pulse(t3 + 1.0, 1.2));
+  const t4 = s.c(4);
+  fly(s, "3", n3.rect(), 42, fa.N, FS, t4 - 0.2, 0.8, { color: RED });
+  fly(s, "12", n12.rect(), 42, fa.D, FS, t4 + 0.3, 0.8, { weight: 700 });
+  const t5 = s.c(5);
+  const da = side(s, "÷ 3", fa.N, t5 - 0.7, C.op, 34), db = side(s, "÷ 3", fa.D, t5 - 0.5, C.op, 34);
+  ea.fadeIn(t5 - 0.1, 0.3, 0); fa2.B.fadeIn(t5 - 0.1, 0.3, 0);
+  s.morph([fa.N, da], fa2.N, t5, 0.8); s.morph([fa.D, db], fa2.D, t5 + 0.15, 0.8);
+
+  // P(not blue): the red and yellow counts fly up into the numerator, then become 7.
+  const t6 = s.c(6);
+  b.forEach(it => it.tw(t6 + 0.3, 0.6, { opacity: 0.22 }));
+  const [pb, pbe, fb, eb, fb2] = seq(s, RX, 595, 60, [`P(not ${col(BLU, "blue")})`, "=", [`${col(RED, "3")} + ${col(YEL, "4")}`, "12", {}, FS], "=", ["7", "12", {}, FS]]);
+  pb.fadeIn(t6 + 0.2); pbe.fadeIn(t6 + 0.2); fb.B.fadeIn(t6 + 1.0, 0.4, 0);
+  const [q3, qp, q4] = pieces(s, fb.N, [["3", col(RED, "3")], ["+"], ["4", col(YEL, "4")]], FS);
+  const t7 = s.c(7);
+  fly(s, "3", n3.rect(), 42, q3, FS, t7 - 0.1, 0.8, { color: RED }); r.forEach(it => it.pulse(t7, 1.2));
+  qp.fadeIn(t7 + 0.8, 0.3, 0);
+  fly(s, "4", n4.rect(), 42, q4, FS, t7 + 0.9, 0.8, { color: YEL }); y.forEach(it => it.pulse(t7 + 1.1, 1.2));
+  fly(s, "12", n12.rect(), 42, fb.D, FS, t7 + 1.4, 0.8, { weight: 700 });
+  const t8 = s.c(8);
+  eb.fadeIn(t8 - 0.1, 0.3, 0); fb2.B.fadeIn(t8 - 0.1, 0.3, 0);
+  s.morph([q3, qp, q4], fb2.N, t8, 0.8); s.morph([fb.D], fb2.D, t8 + 0.15, 0.8);
+
+  // Same thing as 1 − P(blue): written under it, lined up on "=".
+  const t9 = s.c(9);
+  const [ec, one, fc, ec2, fc2] = seq(s, pbe.rect().l, 760, 60, ["=", "1 −", [col(BLU, "5"), "12", {}, FS], "=", ["7", "12", {}, FS]]);
+  ec.fadeIn(t9 + 1.0, 0.4, 0); one.fadeIn(t9 + 1.1, 0.4, 0); fc.B.fadeIn(t9 + 1.6, 0.3, 0);
+  fly(s, "5", n5.rect(), 42, fc.N, FS, t9 + 1.9, 0.7, { color: BLU }); b.forEach(it => it.pulse(t9 + 2.1, 1.25));
+  fly(s, "12", n12.rect(), 42, fc.D, FS, t9 + 2.2, 0.7, { weight: 700 });
+  ec2.fadeIn(t9 + 3.0, 0.3, 0); copyTo(s, fb2.all, fc2.all, t9 + 3.0, 0.8);
+
+  // Prediction: 1/4 of 120 picks.
+  const t10 = s.c(10);
+  b.forEach(it => it.tw(t10, 0.5, { opacity: 1 }));
+  const cap = seq(s, BX, 905, 40, [`<span style="color:${C.dim}">Pick &amp; put back</span>`, "<b>120</b>", `<span style="color:${C.dim}">times</span>`], { ax: 0.5 });
+  cap[0].fadeIn(t10 + 2.4); cap[1].fadeIn(t10 + 3.6); cap[2].fadeIn(t10 + 3.9);
+  const t11 = s.c(11);
+  const [ex, fd, tm, n120, ed, thirty, reds] = seq(s, RX, 905, 56, ["expect", ["1", "4", {}, 56], "×", "120", "=", `<b style="color:${C.op}">30</b>`, col(RED, "reds")]);
+  ex.fadeIn(t11); r.forEach(it => it.pulse(t11 + 0.3, 1.2));
+  copyTo(s, fa2.all, fd.all, t11 + 1.3, 0.8);
+  tm.fadeIn(t11 + 2.0, 0.3, 0); fly(s, "<b>120</b>", cap[1].rect(), 40, n120, 56, t11 + 2.1, 0.8);
+  const t12 = s.c(12);
+  ed.fadeIn(t12, 0.3, 0); thirty.pop(t12); reds.fadeIn(t12 + 0.3, 0.4, 0);
+});
+
+scene("S3TwoEvents", s => {
+  s.text("Two events: list every outcome", CX, 160, 62, { weight: 700 }).fadeIn(s.c(0));
+  const cw = 112, ch = 92;
+  const cell = (t, cls, st = "") => `<div class="${cls}" style="width:${cw}px;height:${ch}px;display:flex;align-items:center;justify-content:center;box-sizing:border-box;${st}">${t}</div>`;
+  const box = "border:2px solid #3a5079;";
+  let html = `<div style="display:grid;grid-template-columns:repeat(7,${cw}px);font-size:38px">`;
+  html += cell("", "") + [1, 2, 3, 4, 5, 6].map(n => cell(n, `h-${n}`, `color:${C.dim};font-weight:600`)).join("");
+  for (const c of ["H", "T"]) {
+    html += cell(c, `r-${c}`, `color:${C.x};font-weight:700`);
+    html += [1, 2, 3, 4, 5, 6].map(n => cell(c + n, `c-${c}${n}`, box)).join("");
+  }
+  html += "</div>";
+  const TX = 620;
+  const table = s.add(html, TX, 470);
+  const t1 = s.c(1);
+  table.fadeIn(t1);
+  s.text(`coin ↓`, TX - 3 * cw, 378, 30, { color: C.dim }).fadeIn(t1);
+  s.text(`die →`, TX - 2 * cw, 322, 30, { color: C.dim }).fadeIn(t1);
+  const [o2, o6, o12] = seq(s, TX, 670, 48, ["2", "× 6", "= <b>12</b> outcomes"], { ax: 0.5 });
+  o2.fadeIn(t1 + 2.4, 0.4, 0); o6.fadeIn(t1 + 3.5, 0.4, 0); o12.fadeIn(t1 + 4.8, 0.4, 0);
+  // Header cells glow as the voice counts them.
+  const hl = (sel, t, c = C.x) => s.ring(table.rect(sel), c, 0).pop(t).fadeOut(t + 1.6);
+  hl(".r-H", t1 + 2.4); hl(".r-T", t1 + 2.6);
+
+  // Heads AND even: the three boxes fly into the numerator, 12 comes from the outcome count.
+  const t2 = s.c(2);
+  const RX = 1110, FS = 60;
+  const evens = ["H2", "H4", "H6"];
+  evens.forEach((k, i) => s.ring(table.rect(".c-" + k), C.op, 2).pop(t2 + 1.0 + i * 0.3));
+  s.text(`P(heads <b>and</b> even)`, RX, 350, 48, { ax: 0 }).fadeIn(t2);
+  const [e1, fA, , e2, fA2] = seq(s, RX, 470, 60, ["=", ["3", "12", { nc: C.op }, FS], `<span style="display:inline-block;width:60px"></span>`, "=", ["1", "4", {}, FS]]);
+  e1.fadeIn(t2 + 2.5, 0.4, 0); fA.B.fadeIn(t2 + 2.5, 0.4, 0);
+  const t3 = s.c(3);
+  evens.forEach((k, i) => fly(s, k, table.rect(".c-" + k), 38, fA.N, FS, t3 + i * 0.15, 0.9, { color: C.op }));
+  fly(s, "12", o12.rect("b"), 48, fA.D, FS, s.c(4), 0.8, { weight: 700 });
+  const t5 = s.c(5);
+  const da = side(s, "÷ 3", fA.N, t5 - 0.5, C.op, 32), db = side(s, "÷ 3", fA.D, t5 - 0.4, C.op, 32);
+  e2.fadeIn(t5, 0.3, 0); fA2.B.fadeIn(t5, 0.3, 0);
+  s.morph([fA.N, da], fA2.N, t5 + 0.1, 0.7); s.morph([fA.D, db], fA2.D, t5 + 0.2, 0.7);
+
+  // Independent: multiply the two separate chances; tops make 1, bottoms make 4.
+  const t6 = s.c(6);
+  s.text("independent → multiply", RX, 752, 40, { ax: 0, color: C.op }).fadeIn(t6 + 2.4);
+  const [fH, tx, fE, e3, fP, ok] = seq(s, RX, 637, 60, [["1", "2", {}, FS], "×", ["1", "2", {}, FS], "=", ["1", "4", {}, FS], `<span style="color:${C.op}">✓</span>`]);
+  const t7 = s.c(7), t8 = s.c(8), t9 = s.c(9);
+  hl(".r-H", t7 - 0.2); fH.fadeIn(t7, 0.5, 0);
+  tx.fadeIn(t8 - 0.4, 0.3, 0);
+  ["h-2", "h-4", "h-6"].forEach(k => hl("." + k, t8 - 0.2, C.op)); fE.fadeIn(t8, 0.5, 0);
+  e3.fadeIn(t9 - 0.2, 0.3, 0); fP.B.fadeIn(t9 - 0.2, 0.3, 0);
+  s.morph([fH.N, fE.N], fP.N, t9 - 0.1, 0.8); s.morph([fH.D, fE.D], fP.D, t9, 0.8);
+  ok.pop(s.c(10));
+
+  s.text(`<b style="color:${C.op}">AND</b> → multiply`, CX, 820, 54).pop(s.c(11));
+  // OR on one pick: the tops add, the bottom stays 12.
+  const t12 = s.c(12);
+  const orr = seq(s, CX, 930, 48, [`<b style="color:${C.x}">OR</b> (one pick) → add:`, `P(${col(RED, "red")} or ${col(YEL, "yellow")}) =`, [col(RED, "3"), "12", {}, 54], "+", [col(YEL, "4"), "12", {}, 54], "=", ["7", "12", {}, 54]], { ax: 0.5 });
+  const [ol, op, g1, pl, g2, oe, g3] = orr;
+  ol.fadeIn(t12); op.fadeIn(t12 + 3.0);
+  g1.fadeIn(s.c(13), 0.5, 0); pl.fadeIn(s.c(14) - 0.3, 0.3, 0); g2.fadeIn(s.c(14), 0.5, 0);
+  const t15 = s.c(15);
+  oe.fadeIn(t15 - 0.2, 0.3, 0); g3.B.fadeIn(t15 - 0.2, 0.3, 0);
+  s.morph([g1.N, g2.N], g3.N, t15 - 0.1, 0.8); s.morph([g1.D, g2.D], g3.D, t15, 0.8);
+});
+
+scene("S4NoReplace", s => {
+  s.text(`${col(C.neg, "Without replacement")}: the first pick stays out`, CX, 165, 60, { weight: 700 }).fadeIn(s.c(0));
+  const BX = 440;
+  const { bag, groups: [r, b] } = marbleBag(s, BX, 600, 600, 330, [[RED, 4, 535], [BLU, 6, 660]], 76, 94);
+  const t1 = s.c(1);
+  bag.fadeIn(t1); [...r, ...b].forEach((it, i) => it.pop(t1 + 0.3 + i * 0.1));
+  // The count label is built from pieces so its numbers can tick down later.
+  const [n4, , n6, , n10] = seq(s, BX, 395, 46, [col(RED, "4"), col(RED, "red") + " +", col(BLU, "6"), col(BLU, "blue") + " =", "<b>10</b>"], { ax: 0.5 });
+  const lab = s.items.slice(-5);
+  lab.slice(0, 2).forEach(it => it.fadeIn(t1 + 1.3, 0.5, 0)); lab.slice(2, 4).forEach(it => it.fadeIn(t1 + 2.3, 0.5, 0)); n10.fadeIn(t1 + 3.4, 0.5, 0);
+  r.forEach(it => it.pulse(t1 + 1.3, 1.15)); b.forEach(it => it.pulse(t1 + 2.3, 1.15));
+
+  // 1st pick: 4 and 10 fly from the count into a real fraction.
+  const RX = 860, Y1 = 420, Y2 = 610, Y3 = 815, FS = 64;
+  const [l1, p1, f1] = seq(s, RX, Y1, 52, [`<span style="color:${C.dim}">1st pick:</span>`, `P(${col(RED, "red")}) =`, ["4", "10", { nc: RED }, FS]]);
+  l1.fadeIn(t1 + 4.8); p1.fadeIn(t1 + 4.8); f1.B.fadeIn(t1 + 5.0, 0.4, 0);
+  const t2 = s.c(2);
+  fly(s, "4", n4.rect(), 46, f1.N, FS, t2 - 0.3, 0.8, { color: RED });
+  fly(s, "10", n10.rect(), 46, f1.D, FS, t2 + 0.2, 0.8, { weight: 700 });
+
+  // The marble leaves the bag and stays out.
+  const t3 = s.c(3);
+  const out = r[3];
+  out.moveTo(t3 + 1.6, 1.3, 300, 860);
+  s.text("picked, stays out", 360, 860, 38, { ax: 0, color: C.dim }).fadeIn(t3 + 2.8);
+
+  // The count ticks down: 4 red -> 3 red, 10 -> 9 left.
+  const t4 = s.c(4);
+  const n3 = place(s.text(col(RED, "3"), 0, 395, 46), n4.rect().cx);
+  const n9 = place(s.text("<b>9</b>", 0, 395, 46), n10.rect().cx);
+  tick(n4, n3, t4 + 1.3); r.slice(0, 3).forEach(it => it.pulse(t4 + 1.4, 1.2));
+  tick(n10, n9, t4 + 2.6);
+  s.text("left", n10.rect().r + 12, 395, 46, { ax: 0, color: C.dim }).fadeIn(t4 + 2.8, 0.5, 0);
+
+  // 2nd pick: copy 4/10 down, then the top and the bottom each tick down by one.
+  const t5 = s.c(5);
+  const [l2, p2, f2] = seq(s, RX, Y2, 52, [`<span style="color:${C.dim}">2nd pick:</span>`, `P(${col(RED, "red")}) =`, ["4", "10", { nc: RED }, FS]]);
+  l2.fadeIn(t5); p2.fadeIn(t5);
+  copyTo(s, f1.all, f2.all, t5 + 0.2, 0.8);
+  const f2b = fp(s, col(RED, "3"), "9", 0, Y2, FS).at(f2.B.rect().cx);
+  tick(f2.N, f2b.N, t5 + 1.2); tick(f2.D, f2b.D, t5 + 1.6);
+  const m1 = side(s, "− 1", f2.N, t5 + 1.3, C.neg, 40, 30), m2 = side(s, "− 1", f2.D, t5 + 1.7, C.neg, 40, 30);
+  const t6 = s.c(6);
+  m1.pulse(t6 + 0.1, 1.35); m2.pulse(t6 + 0.7, 1.35);
+
+  // Both: multiply. The fractions fly down, the tops and bottoms multiply, then 12/90 simplifies by 6.
+  const t7 = s.c(7);
+  const both = seq(s, RX, Y3, 52, [`<span style="color:${C.dim}">Both:</span>`, ["4", "10", { nc: RED }, FS], "×", ["3", "9", { nc: RED }, FS], "=", ["12", "90", {}, FS], `<span style="display:inline-block;width:62px"></span>`, "=", ["2", "15", { color: C.x, weight: 700 }, FS]]);
+  const [bl, g1, tx, g2, e1, g3, , e2, g4] = both;
+  bl.fadeIn(t7);
+  copyTo(s, [f1.N, f1.B, f1.D], g1.all, t7 + 1.9, 0.8);
+  tx.pop(t7 + 2.8);
+  copyTo(s, [f2b.N, f2b.B, f2b.D], g2.all, t7 + 3.1, 0.8);
+  const t8 = s.c(8);
+  e1.fadeIn(t8 - 0.2, 0.3, 0); g3.B.fadeIn(t8 - 0.2, 0.3, 0);
+  s.morph([g1.N, g2.N], g3.N, t8 - 0.1, 0.8);
+  s.morph([g1.D, g2.D], g3.D, t8 + 0.2, 0.8);
+  const d1 = side(s, "÷ 6", g3.N, t8 + 1.1, C.op, 36), d2 = side(s, "÷ 6", g3.D, t8 + 1.3, C.op, 36);
+  const t9 = s.c(9);
+  e2.fadeIn(t9 - 0.2, 0.3, 0); g4.B.fadeIn(t9 - 0.2, 0.3, 0);
+  s.morph([g3.N, d1], g4.N, t9, 0.8);
+  s.morph([g3.D, d2], g4.D, t9 + 0.2, 0.8);
+  s.ring(g4.box(), C.x, 12).pop(t9 + 1.3);
+
+  s.text("After each pick: take 1 from the top AND the bottom.", CX, 955, 50, { color: C.x, weight: 600 }).fadeIn(s.c(10));
+});
+
+const M28 = "A bowl contains 3 red marbles, 4 yellow marbles, and 5 blue marbles. If 2 marbles are selected at random from the bowl, " +
+  "one at a time without replacement, what is the probability that both marbles are not blue?";
+
+scene("S5Question", s => {
+  s.text("Your real question", CX, 150, 56, { color: C.x, weight: 700 }).fadeIn(s.c(0));
+  const card = qcard(s, CX, 470, "Practice Test 1 · Question 28", M28, [fr(7, 12), fr(14, 24), fr(7, 22), fr(49, 144)]);
+  card.fadeIn(s.c(0) + 0.3);
+  const t1 = s.c(1);
+  s.ring(card.rect(".ch-A"), C.neg, 10).pop(t1);
+  s.text(`<span style="color:${C.dim}">Your answer:</span> <b style="color:${C.neg}">A ✗</b> <span style="display:inline-block;width:90px"></span><span style="color:${C.dim}">Time:</span> <b>1 min 33 sec</b>`, CX, 800, 52).fadeIn(t1 + 0.3);
+  seq(s, CX, 905, 58, [["7", "12", { color: C.neg, weight: 700 }, 50], "is only the first pick!"], { ax: 0.5, color: C.neg, weight: 700 }).forEach(e => e.pop(s.c(2)));
+});
+
+scene("S6Solve", s => {
+  s.text(`${col(RED, "3 red")}, ${col(YEL, "4 yellow")}, ${col(BLU, "5 blue")}. &nbsp;Pick 2, no replacement. &nbsp;P(both not blue)?`, CX, 160, 42, { color: C.dim, show: true });
+  const BX = 410;
+  const { bag, groups: [r, y, b] } = marbleBag(s, BX, 560, 540, 380, [[RED, 3, 450], [YEL, 4, 555], [BLU, 5, 660]], 74, 94);
+  [bag, ...r, ...y, ...b].forEach(it => it.fadeIn(0.1, 0.5, 0));
+  const cnt = seq(s, BX, 320, 44, [col(RED, "3"), "+", col(YEL, "4"), "+", col(BLU, "5"), "=", "<b>12</b>"], { ax: 0.5 });
+  cnt.forEach(e => e.fadeIn(0.1, 0.5, 0));
+  const [n3, , n4, , , , n12] = cnt;
+  const RX = 820, FS = 54, badge = (n, t) => `<span class="badge">${n}</span>&nbsp;${t}`;
+
+  // 1. Not blue: the red and yellow counts fly up, become 7; the 12 comes from the total.
+  const t0 = s.c(0);
+  b.forEach(it => it.tw(t0 + 1.4, 0.6, { opacity: 0.22 }));
+  const [l1, , f1] = seq(s, RX, 290, 50, [badge(1, "1st pick, not blue:"), `<span style="display:inline-block;width:40px"></span>`, ["7", "12", {}, FS]]);
+  l1.fadeIn(t0 + 0.2); f1.B.fadeIn(t0 + 1.4, 0.4, 0);
+  const t1 = s.c(1);
+  const q = seq(s, f1.B.rect().cx, f1.N.rect().cy, FS, [col(RED, "3"), "+", col(YEL, "4")], { ax: 0.5, gap: 0.2 });
+  fly(s, "3", n3.rect(), 44, q[0], FS, t1, 0.7, { color: RED }); r.forEach(it => it.pulse(t1 + 0.1, 1.2));
+  q[1].fadeIn(t1 + 0.6, 0.3, 0);
+  fly(s, "4", n4.rect(), 44, q[2], FS, t1 + 0.5, 0.7, { color: YEL }); y.forEach(it => it.pulse(t1 + 0.6, 1.2));
+  s.morph(q, f1.N, s.c(2), 0.7); q.forEach(e => e.fadeOut(s.c(2) + 0.1, 0.3));
+  fly(s, "<b>12</b>", n12.rect(), 44, f1.D, FS, s.c(3) - 0.1, 0.7);
+
+  // 2. The marble stays out: the count and the fraction both tick down by one.
+  const t4 = s.c(4);
+  y[3].moveTo(t4 + 1.2, 1.2, 250, 830);
+  s.text("stays out", 300, 830, 38, { ax: 0, color: C.dim }).fadeIn(t4 + 2.2);
+  const [l2, , f2] = seq(s, RX, 445, 50, [badge(2, "2nd pick, not blue:"), `<span style="display:inline-block;width:40px"></span>`, ["7", "12", {}, FS]]);
+  l2.fadeIn(t4); copyTo(s, f1.all, f2.all, t4 + 0.4, 0.8);
+  const f2b = fp(s, "6", "11", 0, 445, FS).at(f2.B.rect().cx);
+  const n3y = place(s.text(col(YEL, "3"), 0, 320, 44), n4.rect().cx), n11 = place(s.text("<b>11</b>", 0, 320, 44), n12.rect().cx);
+  tick(n4, n3y, t4 + 2.4);
+  const t5 = s.c(5), t6 = s.c(6);
+  tick(f2.N, f2b.N, t5); side(s, "− 1", f2.N, t5 + 0.1, C.neg, 38, 30);
+  tick(n12, n11, t6 - 0.2); tick(f2.D, f2b.D, t6); side(s, "− 1", f2.D, t6 + 0.1, C.neg, 38, 30);
+
+  // 3. Both: the two fractions come down and multiply, tops with tops and bottoms with bottoms.
+  const t7 = s.c(7);
+  const [l3, g1, tx, g2, e3, g3] = seq(s, RX, 600, 50, [badge(3, "Both:"), ["7", "12", {}, FS], "×", ["6", "11", {}, FS], "=", ["42", "132", {}, FS]]);
+  l3.fadeIn(t7);
+  copyTo(s, f1.all, g1.all, s.c(8), 0.8);
+  tx.fadeIn(s.c(9) - 0.3, 0.3, 0); copyTo(s, [f2b.N, f2.B, f2b.D], g2.all, s.c(9), 0.8);
+  const t10 = s.c(10);
+  e3.fadeIn(t10 - 0.2, 0.3, 0); g3.B.fadeIn(t10 - 0.2, 0.3, 0);
+  s.morph([g1.N, g2.N], g3.N, t10 - 0.1, 0.8);
+  s.morph([g1.D, g2.D], g3.D, s.c(11) - 0.1, 0.8);
+
+  // Simplify: divide the top and the bottom by 6.
+  const t13 = s.c(13);
+  const d1 = side(s, "÷ 6", g3.N, t13, C.op, 34), d2 = side(s, "÷ 6", g3.D, t13 + 0.2, C.op, 34);
+  const [e4, g4, cc] = seq(s, e3.rect().l, 755, 50, ["=", ["7", "22", { color: C.x, weight: 700 }, FS], `<b style="color:${C.op}">choice C</b>`], { gap: 0.55 });
+  const t14 = s.c(14);
+  e4.fadeIn(t14 - 0.2, 0.3, 0); g4.B.fadeIn(t14 - 0.2, 0.3, 0);
+  s.morph([g3.N, d1], g4.N, t14 - 0.1, 0.8); s.morph([g3.D, d2], g4.D, t14, 0.8);
+  const t15 = s.c(15);
+  s.ring(g4.box(), C.x, 12).pop(t15); cc.fadeIn(t15 + 0.3, 0.5, 0);
+
+  // The trap: putting the marble back keeps the second fraction at 7/12.
+  const t16 = s.c(16), t17 = s.c(17);
+  const trap = seq(s, CX + 120, 915, 46, [`<b>D.</b>`, ["49", "144", { color: C.neg }, 46], "=", ["7", "12", {}, 46], "×", ["7", "12", {}, 46], `<span style="color:${C.neg};font-weight:600">"put it back" trap ✗</span>`], { ax: 0.5 });
+  const [tD, tf, te, tf1, tx2, tf2, tl] = trap;
+  tD.fadeIn(t16); tf.fadeIn(t16 + 0.9, 0.5, 0);
+  te.fadeIn(t17 - 0.2, 0.3, 0); copyTo(s, f1.all, tf1.all, t17 - 0.1, 0.8);
+  tx2.fadeIn(t17 + 0.4, 0.3, 0); copyTo(s, f1.all, tf2.all, t17 + 0.5, 0.8);
+  tl.fadeIn(t17 + 1.4, 0.5, 0);
+  const t18 = s.c(18);
+  s.ring(f2b.box(), C.op, 12).pop(t18).fadeOut(t18 + 2.0);
+  f2b.N.pulse(t18 + 0.2, 1.2); f2b.D.pulse(t18 + 0.2, 1.2);
+});
+
+scene("S7Totals", s => {
+  s.text(`Mean = total ÷ count`, CX, 165, 66, { weight: 700 }).fadeIn(s.c(0));
+  const base = 760, k = 4.6, xs = [210, 350, 490, 630], vals = [80, 90, 85, 95];
+  const t1 = s.c(1);
+  const axis = s.add(`<div style="width:600px;height:5px;border-radius:3px;background:${C.dim}"></div>`, 420, base + 2);
+  const bars = vals.map((v, i) => s.add(`<div style="width:100px;height:${v * k}px;border-radius:10px 10px 0 0;background:${C.y}"></div>`, xs[i], base, { ay: 1 }));
+  const labs = vals.map((v, i) => s.text(String(v), xs[i], base - v * k - 32, 40, { weight: 600 }));
+  axis.fadeIn(t1);
+  bars.forEach((it, i) => it.fadeIn(t1 + 0.4 + i * 0.5, 0.5, 40));
+  labs.forEach((it, i) => it.fadeIn(t1 + 0.6 + i * 0.5));
+  const meanY = base - 87.5 * k;
+  const mline = s.add(`<div style="width:580px;border-top:5px dashed ${C.x}"></div>`, 420, meanY);
+  const mlab = s.text("87.5", 720, meanY, 40, { color: C.x, weight: 700, ax: 0 });
+  const RX = 880;
+  s.text("80 + 90 + 85 + 95 = 350", RX, 330, 56, { ax: 0 }).fadeIn(t1 + 4.5);
+  s.text(`350 ÷ 4 = <b style="color:${C.x}">87.5</b>`, RX, 425, 56, { ax: 0 }).fadeIn(t1 + 7.5);
+  mline.fadeIn(t1 + 8.5, 0.6, 0); mlab.fadeIn(t1 + 8.8, 0.6, 0);
+
+  const t2 = s.c(2);
+  const key = s.text(`total = mean × count`, RX, 565, 72, { ax: 0, color: C.x, weight: 700 });
+  key.pop(t2 + 3.5);
+  s.ring(key.rect(), C.x, 18).pop(t2 + 4.2);
+
+  const t3 = s.c(3);
+  [axis, ...bars, ...labs, mline, mlab].forEach(it => it.fadeOut(t3, 0.5));
+  const kk = 1.4, X0 = 140;
+  const have = s.add(`<div style="width:${340 * kk}px;height:76px;border-radius:12px;background:${C.op};color:${C.bg};font-size:38px;font-weight:700;display:flex;align-items:center;justify-content:center">have 340</div>`, X0, 720, { ax: 0 });
+  const q = s.add(`<div style="width:${95 * kk}px;height:76px;border-radius:12px;background:${C.x};color:${C.bg};font-size:44px;font-weight:700;display:flex;align-items:center;justify-content:center">?</div>`, X0 + 340 * kk + 6, 720, { ax: 0 });
+  const need = s.add(`<div style="width:${435 * kk + 6}px;height:76px;border-radius:12px;border:4px solid ${C.dim};box-sizing:border-box;color:#fff;font-size:38px;font-weight:600;display:flex;align-items:center;justify-content:center">need 435</div>`, X0, 830, { ax: 0 });
+  s.text(`have: &nbsp;85 × 4 = <b style="color:${C.op}">340</b>`, RX, 720, 52, { ax: 0 }).fadeIn(t3 + 5.5);
+  have.fadeIn(t3 + 5.5);
+  s.text(`need: &nbsp;87 × 5 = <b>435</b>`, RX, 830, 52, { ax: 0 }).fadeIn(t3 + 9.5);
+  need.fadeIn(t3 + 9.5);
+  const t4 = s.c(4);
+  q.pop(t4);
+  const fin = s.text(`5th test = 435 − 340 = <b style="color:${C.x}">95</b>`, RX, 945, 56, { ax: 0, weight: 600 });
+  fin.fadeIn(t4 + 0.3);
+});
+
+const M15 = "Albert took 4 courses and his average course grade was 90. Bette took 5 courses and her average course grade was 85. " +
+  "If Bette earned the same grade in 4 of her courses as Albert earned in all of his courses, what grade must Bette have earned in her 5th course?";
+
+scene("S8BetteQ", s => {
+  s.text("Your real question", CX, 150, 56, { color: C.x, weight: 700 }).fadeIn(s.c(0));
+  const card = qcard(s, CX, 480, "Practice Test 1 · Question 15", M15, ["60", "65", "80", "87"]);
+  card.fadeIn(s.c(0) + 0.3);
+  const t1 = s.c(1);
+  s.ring(card.rect(".ch-C"), C.neg, 10).pop(t1);
+  s.text(`<span style="color:${C.dim}">Your answer:</span> <b style="color:${C.neg}">C ✗</b> <span style="display:inline-block;width:90px"></span><span style="color:${C.dim}">Time:</span> <b style="color:${C.neg}">2 min 58 sec</b>`, CX, 820, 52).fadeIn(t1 + 0.3);
+  s.text(`<span style="color:${C.dim}">Goal:</span> <b style="color:${C.op}">think in totals, under 1 minute</b>`, CX, 925, 56).pop(s.c(2));
+});
+
+scene("S9BetteSolve", s => {
+  s.text(`Albert: 4 courses, mean 90 &nbsp;&nbsp;·&nbsp;&nbsp; Bette: 5 courses, mean 85`, CX, 160, 42, { color: C.dim, show: true });
+  const k = 2.6, X0 = 360;
+  const bar = (w, bg, txt, y, fg = C.bg) => s.add(`<div style="width:${w}px;height:96px;border-radius:14px;background:${bg};color:${fg};font-size:44px;font-weight:700;display:flex;align-items:center;justify-content:center">${txt}</div>`, X0, y, { ax: 0 });
+  const t0 = s.c(0);
+  s.text("Albert", X0 - 30, 330, 48, { ax: 1, weight: 600 }).fadeIn(t0);
+  bar(360 * k, C.op, "90 × 4 = 360", 330).fadeIn(t0 + 1.0, 0.6, 0);
+  const t1 = s.c(1);
+  s.text("Bette", X0 - 30, 500, 48, { ax: 1, weight: 600 }).fadeIn(t1);
+  const bb = bar(425 * k, C.y, "85 × 5 = 425", 500);
+  bb.fadeIn(t1 + 0.4, 0.6, 0);
+  const t2 = s.c(2);
+  const guide = s.add(`<div style="height:170px;border-left:4px dashed ${C.dim}"></div>`, X0 + 360 * k, 415);
+  guide.fadeIn(t2);
+  const same = bar(360 * k, C.op, "same 4 courses = 360", 500);
+  same.fadeIn(t2 + 0.8, 0.6, 0);
+  const qq = s.add(`<div style="width:${65 * k}px;height:96px;border-radius:14px;background:${C.x};color:${C.bg};font-size:52px;font-weight:700;display:flex;align-items:center;justify-content:center">?</div>`, X0 + 360 * k, 500, { ax: 0 });
+  qq.pop(t2 + 1.8);
+  s.text("total 425", X0 + 425 * k + 24, 500, 40, { ax: 0, color: C.y, weight: 600 }).fadeIn(t2 + 1.8);
+  const t3 = s.c(3);
+  const e = s.text(`5th course = 425 − 360 = <span class="hl" style="color:${C.x};font-weight:700;margin-left:0.4em">65</span>`, CX, 700, 72);
+  e.fadeIn(t3);
+  const R = e.rect(".hl");
+  s.ring(R, C.x, 12).pop(t3 + 2.4);
+  s.text("choice B", e.rect().r + 50, 700, 48, { ax: 0, color: C.op, weight: 700 }).fadeIn(t3 + 5.0);
+  s.text(`Check: (360 + 65) ÷ 5 = 425 ÷ 5 = 85 <span style="color:${C.op}">✓</span>`, CX, 880, 52).write(s.c(4) + 0.3, 2.5);
+});
+
+scene("S10Table", s => {
+  s.text("Frequency tables: every game counts", CX, 160, 62, { weight: 700 }).fadeIn(s.c(0));
+  const rows = [["Goals", "Games", "Goals × Games"], [0, 2, 0], [1, 3, 3], [2, 4, 8], [4, 1, 4], ["Total", 10, 15]];
+  const colX = [150, 370, 590], colW = [220, 220, 330], RY = i => 344 + 88 * i;
+  const cellIt = (t, c, i, st) => s.add(`<div style="width:${colW[c]}px;height:88px;box-sizing:border-box;border:2px solid #3a5079;display:flex;align-items:center;justify-content:center;font-size:${i === 0 ? 34 : 48}px;${st}">${t}</div>`, colX[c], RY(i), { ax: 0 });
+  const grid = rows.map((r, i) => r.map((t, c) => cellIt(t, c, i,
+    i === 0 ? `color:${C.dim};font-weight:600` : i === 5 ? `font-weight:700;color:${c === 2 ? C.x : "#fff"}` : c === 2 ? `color:${C.op};font-weight:600` : c === 0 ? `color:${C.y};font-weight:600` : "")));
+  const t0 = s.c(0);
+  grid.slice(0, 5).forEach((r, i) => r.slice(0, 2).forEach(it => it.fadeIn(t0 + 0.6 + i * 0.15, 0.5, 0)));
+  const t1 = s.c(1);
+  [1, 2, 3, 4].forEach((i, j) => grid[i].slice(0, 2).forEach(it => it.pulse(t1 + j * 1.9, 1.1)));
+
+  const RX = 1010;
+  const t2 = s.c(2);
+  s.text(`<span style="text-decoration:line-through;text-decoration-color:${C.neg};text-decoration-thickness:5px">(0 + 1 + 2 + 4) ÷ 4 = 1.75</span>`, RX, 380, 52, { ax: 0 }).fadeIn(t2);
+  s.text("✗ treats each row like one game", RX, 465, 38, { ax: 0, color: C.neg, weight: 600 }).fadeIn(t2 + 2.0);
+
+  const t3 = s.c(3);
+  grid[0][2].fadeIn(t3, 0.5, 0);
+  [1, 2, 3, 4].forEach((i, j) => grid[i][2].fadeIn(t3 + 4.0 + j * 0.9, 0.5, 0));
+  grid[5].forEach(it => it.fadeIn(t3 + 8.0, 0.5, 0));
+
+  const t4 = s.c(4);
+  const mean = s.text(`Mean = 15 ÷ 10 = <b style="color:${C.x}">1.5</b>`, RX, 640, 68, { ax: 0, weight: 600 });
+  mean.fadeIn(t4);
+  s.text("÷ games (10), not rows (4)", RX, 745, 42, { ax: 0, color: C.op, weight: 600 }).fadeIn(t4 + 1.2);
+});
+
+scene("S11Median", s => {
+  s.text("Median, mode, and outliers", CX, 160, 62, { weight: 700 }).fadeIn(s.c(0));
+  const vals = [3, 7, 7, 8, 10], X = i => CX + (i - 2) * 200, CY_ = 380;
+  const card = (v, c = "#fff", bc = C.dim) => `<div class="box" style="width:160px;height:160px;border-color:${bc};color:${c};font-size:76px;font-weight:600">${v}</div>`;
+  const cards = vals.map((v, i) => s.add(card(v), X(i), CY_));
+  const t0 = s.c(0);
+  cards.forEach((it, i) => it.fadeIn(t0 + 0.5 + i * 0.2));
+  const t1 = s.c(1);
+  s.ring(cards[2].rect(), C.op, 12).pop(t1 + 3.5);
+  s.add(`<div style="width:360px;height:10px;border-radius:5px;background:${C.x}"></div>`, (X(1) + X(2)) / 2, 490).fadeIn(t1 + 5.5, 0.5, 0);
+  const SY = 610, VY = 700, cols = [X(0) + 40, X(2), X(4) - 40];
+  s.text("median", cols[1], SY, 44, { color: C.op, weight: 600 }).fadeIn(t1 + 3.5);
+  s.text("7", cols[1], VY, 68, { weight: 600 }).fadeIn(t1 + 3.7);
+  s.text("mode", cols[2], SY, 44, { color: C.x, weight: 600 }).fadeIn(t1 + 5.5);
+  s.text("7", cols[2], VY, 68, { weight: 600 }).fadeIn(t1 + 5.7);
+  s.text("mean", cols[0], SY, 44, { color: C.y, weight: 600 }).fadeIn(t1 + 7.5);
+  const m1 = s.text("35 ÷ 5 = 7", cols[0], VY, 64, { weight: 600 });
+  m1.fadeIn(t1 + 7.7);
+
+  const t2 = s.c(2);
+  cards[4].fadeOut(t2 + 0.2, 0.3);
+  s.add(card(50, C.neg, C.neg), X(4), CY_).pop(t2 + 0.4);
+
+  const t3 = s.c(3);
+  m1.fadeOut(t3, 0.3);
+  s.text(`75 ÷ 5 = <b style="color:${C.neg}">15</b>`, cols[0], VY, 64, { weight: 600 }).pop(t3 + 0.3);
+  s.text("still 7", cols[1], VY + 85, 40, { color: C.op, weight: 600 }).fadeIn(t3 + 4.0);
+
+  s.text("Outliers pull the mean, not the median.", CX, 880, 56, { color: C.x, weight: 600 }).fadeIn(s.c(4));
+  s.text("Even count? Median = average of the two middle numbers.", CX, 960, 40, { color: C.dim }).fadeIn(s.c(4) + 5.0);
+});
+
+scene("S12Recap", s => {
+  s.text("Your toolkit", CX, 150, 76, { weight: 700 }).fadeIn(s.c(0));
+  const lines = [
+    "Probability = what you want ÷ everything possible.  Not = 1 − P.",
+    "AND → multiply.  No replacement: −1 on the top AND the bottom.",
+    "Total = mean × count.  Totals find the missing value.",
+    "Median = the middle.  Outliers pull the mean, not the median.",
+  ];
+  lines.forEach((l, i) => s.badge(i + 1, `<span style="color:#fff;font-weight:500">${esc(l)}</span>`, 170, 300 + i * 130, { size: 44 }).fadeIn(s.c(i + 1), 0.6, 0).set(s.c(i + 1), { sx: -30 }).tw(s.c(i + 1), 0.6, { sx: 0 }));
+  s.text("Next: Workbook Unit 5 practice.  You've got this!", CX, 900, 54, { color: C.op, weight: 700 }).pop(s.c(5));
+});
+
+}
+
+</script>
+<script src="../boot.js"></script>
+</body></html>

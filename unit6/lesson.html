@@ -1,0 +1,591 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><title>Unit 6 · Angles</title>
+<link rel="stylesheet" href="../lesson.css">
+<style>
+  /* this unit has 12 questions with long wording: keep the score table on one screen */
+  #summary { gap: 22px; }
+  .sumtitle { font-size: 68px; }
+  .sumtable { font-size: 25px; }
+  .sumtable td, .sumtable th { padding: 4px 20px; }
+  .choice .letter { flex-shrink: 0; }
+  .sumtable td.qq { max-width: 1050px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sumtable td.ans { white-space: nowrap; max-width: 330px; overflow: hidden; text-overflow: ellipsis; }
+</style></head>
+<body data-unit="unit6"><div id="stage"></div>
+<script src="lesson-data.js"></script>
+<script src="../engine.js"></script>
+<script>
+
+// ---------- geometry helpers (this unit only) ----------
+// Points are {x, y} in stage pixels. Angles are math degrees: 0 = right, 90 = up, counterclockwise.
+const RAD = Math.PI / 180;
+const at = (V, deg, r) => ({ x: V.x + r * Math.cos(deg * RAD), y: V.y - r * Math.sin(deg * RAD) });
+const dirOf = (A, B) => Math.atan2(A.y - B.y, B.x - A.x) / RAD;
+const mid = (A, B) => ({ x: (A.x + B.x) / 2, y: (A.y + B.y) / 2 });
+const f1 = v => v.toFixed(1);
+const pp = P => `${f1(P.x)} ${f1(P.y)}`;
+const WHITE = "#ffffff";
+
+function arcD(V, r, a1, a2) {
+  let d = ((a2 - a1) % 360 + 360) % 360; if (d < 0.01) d = 360;
+  const p1 = at(V, a1, r);
+  if (d > 359.9) { const pm = at(V, a1 + 180, r); return `M${pp(p1)} A${r} ${r} 0 0 0 ${pp(pm)} A${r} ${r} 0 0 0 ${pp(p1)}`; }
+  return `M${pp(p1)} A${r} ${r} 0 ${d > 180 ? 1 : 0} 0 ${pp(at(V, a1 + d, r))}`;
+}
+const wedgeD = (V, r, a1, a2) => `M${pp(V)} L` + arcD(V, r, a1, a2).slice(1) + " Z";
+
+// An SVG drawn in stage coordinates, as one Item whose origin (for moving, rotating, popping) is O.
+// Paths marked data-draw are revealed along their length by draw(); data-fade parts fade in with them.
+function shp(s, inner, O, o = {}) {
+  const it = s.add(`<svg width="1" height="1" style="display:block;overflow:visible"><g transform="translate(${f1(-O.x)} ${f1(-O.y)})">${inner}</g></svg>`, O.x, O.y, o);
+  const dr = [...it.el.querySelectorAll("[data-draw]")], fd = [...it.el.querySelectorAll("[data-fade]")];
+  dr.forEach(p => { p._L = p.getTotalLength() + 2; p.style.strokeDasharray = `${p._L} ${p._L}`; });
+  const ap = Item.prototype.apply;
+  it.apply = st => {
+    ap.call(it, { ...st, clip: 100 });
+    const k = st.clip / 100;
+    dr.forEach(p => { p.style.strokeDashoffset = p._L * (1 - k); });
+    fd.forEach(p => { p.style.opacity = k * +p.dataset.fade; });
+  };
+  it.apply(it.base);
+  return it;
+}
+const draw = (it, t, d = 0.8) => it.set(t, { clip: 0, opacity: 1 }).tw(t, d, { clip: 100 }, "inout");
+const stroke = (c, w) => `stroke="${c}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" fill="none"`;
+function seg(s, A, B, o = {}) {
+  return shp(s, `<path data-draw d="M${pp(A)} L${pp(B)}" ${stroke(o.color || WHITE, o.w || 6)}/>`, A, o);
+}
+function path(s, pts, o = {}) {
+  const d = "M" + pts.map(pp).join(" L") + (o.close ? " Z" : "");
+  return shp(s, `<path data-draw d="${d}" ${stroke(o.color || WHITE, o.w || 6)}/>`, o.origin || pts[0], o);
+}
+// Angle mark: translucent wedge plus an arc that sweeps from a1 to a2 (counterclockwise).
+function ang(s, V, r, a1, a2, color, o = {}) {
+  return shp(s, `<path data-fade="${o.fo ?? 0.3}" d="${wedgeD(V, r, a1, a2)}" fill="${color}"/>` +
+    `<path data-draw d="${arcD(V, r, a1, a2)}" ${stroke(color, o.w || 6)}/>`, V, o);
+}
+function rmark(s, V, a1, size = 36, color = WHITE) {
+  const p1 = at(V, a1, size), p3 = at(V, a1 + 90, size), p2 = at(p1, a1 + 90, size);
+  return shp(s, `<path data-draw d="M${pp(p1)} L${pp(p2)} L${pp(p3)}" ${stroke(color, 5)}/>`, V);
+}
+function ticks(s, A, B, color = WHITE) {
+  const M = mid(A, B), d = dirOf(A, B);
+  return shp(s, `<path data-draw d="M${pp(at(M, d + 90, 20))} L${pp(at(M, d - 90, 20))}" ${stroke(color, 6)}/>`, M);
+}
+const dotIt = (s, P, color = WHITE, r = 11) => shp(s, `<circle cx="${f1(P.x)}" cy="${f1(P.y)}" r="${r}" fill="${color}"/>`, P);
+const lab = (s, html, V, deg, r, size = 48, o = {}) => { const p = at(V, deg, r); return s.text(html, p.x, p.y, size, { weight: 600, ...o }); };
+const deg = (n, color) => `<span style="color:${color}">${n}°</span>`;
+const XD = `<span class="x">x</span>°`;
+const ANG = `<svg style="display:inline-block;width:0.62em;height:0.62em;margin-right:0.06em;vertical-align:-0.02em;overflow:visible" viewBox="0 0 10 10"><path d="M9.5 0.5 L0.5 9.5 H10" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg>`;
+const col = (h, c) => `<span style="color:${c}">${h}</span>`;
+
+// ---------- Manim-style moves (this unit only) ----------
+// A line of work built from separate pieces, laid out left to right from x (o.ax = 0.5 centers it on x),
+// so single numbers can fly into their slot or morph in place. Returns the piece Items.
+function mrow(s, pieces, x, y, size, o = {}) {
+  const gap = size * 0.26;
+  const its = pieces.map(p => s.text(p, 0, y, size, { ax: 0, weight: o.weight || 500, color: o.color || WHITE }));
+  const ws = its.map(it => it.rect().w);
+  let cx = x - (ws.reduce((a, b) => a + b, 0) + gap * (its.length - 1)) * (o.ax || 0);
+  its.forEach((it, i) => { it.base.x = cx; it.apply(it.base); cx += ws[i] + gap; });
+  return its;
+}
+// A copy of text Item `src` (a label on the figure, or a number in a line of work) flies from where it is at time t
+// into `dst`, growing or shrinking to dst's size; dst appears as the copy lands. The source stays where it is.
+// The copy lands left-aligned with dst (so "50" lands on the "50" of "50°"), or on the text `part` of dst.
+// (Text Items only: the figure's SVG Items override apply() and measure as a 1-pixel box.)
+function fly(s, src, dst, t, d = 0.9, part) {
+  const off = (it, tt) => { const st = it.state(tt), b = it.base; return { x: st.x - b.x + st.sx, y: st.y - b.y + st.sy }; };
+  const r0 = src.rect(), o0 = off(src, t), r1 = part ? s.partBox(dst, part, 0, true) : dst.rect(), o1 = off(dst, t + d);
+  const k = (parseFloat(dst.el.style.fontSize) / parseFloat(src.el.style.fontSize)) || 1;
+  const p0 = { x: (r0.l + r0.r) / 2 + o0.x, y: (r0.t + r0.b) / 2 + o0.y };
+  const p1 = { x: r1.l + r0.w * k / 2 + o1.x, y: (dst.rect().t + dst.rect().b) / 2 + o1.y };
+  const g = s.add(src.el.innerHTML, p0.x, p0.y);
+  g.el.style.cssText = src.el.style.cssText; g.el.style.transformOrigin = "50% 50%"; g.apply(g.base);
+  g.set(t, { opacity: 1 });
+  g.tw(t, d, { x: p1.x, y: p1.y, scale: k }, "inout");
+  g.tw(t + d * 0.85, d * 0.2, { opacity: 0 }, "linear");
+  dst.tw(t + d * 0.8, d * 0.25, { opacity: 1 }, "linear");
+  return g;
+}
+// Evaluate part of a line in place: `from` collapses into the new piece `to` (placed where `from` started),
+// and the pieces after it slide left to close the gap.
+function evalIn(s, from, to, after, t, d = 0.7) {
+  const dx = to.rect().w - from.rect().w;
+  from.fadeOut(t, 0.15);
+  s.morph([from], to, t, d);
+  after.forEach(it => it.shift(t, d, dx, 0));
+}
+
+// Static SVG of her Practice Test 1 question 8 (for the question card).
+function figM8() {
+  const R = { x: 40, y: 250 }, U = { x: 360, y: 250 }, V = { x: 530, y: 250 };
+  const T = { x: 200, y: 250 - 160 * Math.tan(50 * RAD) };
+  const l = (A, B) => `<path d="M${pp(A)} L${pp(B)}" ${stroke(WHITE, 5)}/>`;
+  const tk = (A, B) => { const M = mid(A, B), d = dirOf(A, B); return l(at(M, d + 90, 13), at(M, d - 90, 13)); };
+  const t = (P, s, c = WHITE, sz = 34) => `<text x="${f1(P.x)}" y="${f1(P.y)}" font-size="${sz}" fill="${c}" font-weight="600" text-anchor="middle" dominant-baseline="central">${s}</text>`;
+  return `<svg width="580" height="300" viewBox="0 0 580 300">` + l(R, V) + l(R, T) + l(T, U) + tk(R, T) + tk(T, U) +
+    `<path d="${arcD(T, 38, 230, 310)}" ${stroke(C.op, 4)}/><path d="${arcD(U, 40, 0, 130)}" ${stroke(C.x, 4)}/>` +
+    t(at(T, 270, 75), "80°", C.op) + t(at(U, 65, 74), `<tspan font-style="italic" fill="${C.x}">x</tspan>°`) +
+    t({ x: R.x - 4, y: R.y + 30 }, "R") + t({ x: T.x, y: T.y - 30 }, "T") + t({ x: U.x, y: U.y + 32 }, "U") + t({ x: V.x - 4, y: V.y + 32 }, "V") + `</svg>`;
+}
+
+function build() {
+
+scene("S1Title", s => {
+  const unit = s.text("UNIT 6", CX, 330, 44, { color: C.op, weight: 700, style: { letterSpacing: "0.3em" } });
+  const title = s.text("Angles", CX, 440, 132, { weight: 700 });
+  const sub = s.text("SHSAT Math with Victoria", CX, 550, 48, { color: C.dim });
+  unit.fadeIn(s.c(0)); title.write(s.c(0) + 0.3, 1.0); sub.fadeIn(s.c(0) + 1.3);
+  // a small angle sweeping open beside the title
+  const V = { x: 1240, y: 485 };
+  draw(seg(s, V, at(V, 0, 190), { color: C.dim, w: 7 }), s.c(0) + 0.4, 0.5);
+  draw(seg(s, V, at(V, 40, 190), { color: C.dim, w: 7 }), s.c(0) + 0.8, 0.5);
+  draw(ang(s, V, 110, 0, 40, C.x), s.c(0) + 1.2, 0.8);
+  const stat = s.text(`Practice tests: <b style="color:${C.neg}">4 of 7</b> angle questions missed`, CX, 760, 50, { color: C.dim });
+  stat.fadeIn(s.c(1)); stat.fadeOut(s.c(2));
+  s.text("A few facts + write every angle on the figure.", CX, 760, 56, { color: C.x, weight: 600 }).fadeIn(s.c(2) + 0.3);
+});
+
+scene("S2Names", s => {
+  s.text("Naming angles", CX, 175, 64, { weight: 700 }).fadeIn(s.c(0));
+  const P = { x: 400, y: 560 }, Q = at(P, 0, 440), N = at(P, 42, 400);
+  const t0 = s.c(0);
+  draw(seg(s, P, Q), t0 + 0.4, 0.8); draw(seg(s, P, N), t0 + 0.9, 0.8);
+  dotIt(s, P, C.x, 12).pop(t0 + 1.6);
+  s.text("vertex", P.x, P.y + 72, 42, { color: C.x, weight: 600 }).fadeIn(t0 + 1.9);
+
+  const t1 = s.c(1);
+  lab(s, "Q", Q, 0, 45, 56).fadeIn(t1 + 0.2);
+  const pl = s.text("P", P.x - 50, P.y + 2, 56, { weight: 600, color: C.x }); pl.fadeIn(t1 + 0.5);
+  lab(s, "N", N, 42, 45, 56).fadeIn(t1 + 0.8);
+  draw(ang(s, P, 110, 0, 42, C.x), t1 + 1.2, 0.9);
+  s.text(`${ANG}Q<span style="color:${C.x}">P</span>N`, 1330, 340, 130, { weight: 700 }).write(t1 + 1.6, 1.0);
+  s.text(`middle letter = <span style="color:${C.x}">vertex</span>`, 1330, 470, 46, { color: C.dim }).fadeIn(t1 + 5.0);
+  pl.pulse(t1 + 7.4, 1.4);
+
+  // the three special angles
+  const V1 = { x: 330, y: 900 }, V2 = { x: 960, y: 900 }, V3 = { x: 1500, y: 860 };
+  const t2 = s.c(2);
+  draw(seg(s, V1, at(V1, 0, 240)), t2, 0.6); draw(seg(s, V1, at(V1, 90, 200)), t2 + 0.3, 0.6);
+  draw(ang(s, V1, 80, 0, 90, C.op, { fo: 0.25 }), t2 + 0.8, 0.6);
+  draw(rmark(s, V1, 0, 40, C.op), t2 + 1.2, 0.4);
+  lab(s, deg(90, C.op), V1, 45, 135, 50).pop(t2 + 1.4);
+  s.text("right angle", V1.x + 110, 965, 40, { color: C.dim }).fadeIn(t2 + 1.6);
+  const t3 = s.c(3);
+  draw(seg(s, at(V2, 180, 210), at(V2, 0, 210)), t3, 0.7);
+  dotIt(s, V2).fadeIn(t3 + 0.4, 0.3, 0);
+  draw(ang(s, V2, 90, 0, 180, C.op, { fo: 0.25 }), t3 + 0.7, 1.0);
+  s.text(deg(180, C.op), V2.x, V2.y - 135, 50, { weight: 600 }).pop(t3 + 1.6);
+  s.text("straight angle", V2.x, 965, 40, { color: C.dim }).fadeIn(t3 + 1.8);
+  const t4 = s.c(4);
+  draw(seg(s, V3, at(V3, 0, 200)), t4, 0.5);
+  dotIt(s, V3).fadeIn(t4 + 0.2, 0.3, 0);
+  draw(ang(s, V3, 80, 0, 360, C.op, { fo: 0.25 }), t4 + 0.5, 1.4);
+  s.text(deg(360, C.op), V3.x - 160, V3.y - 70, 50, { weight: 600 }).pop(t4 + 1.9);
+  s.text("around a point", V3.x - 20, 965, 40, { color: C.dim }).fadeIn(t4 + 2.1);
+});
+
+scene("S3Cross", s => {
+  s.text("When two lines cross", CX, 175, 64, { weight: 700 }).fadeIn(s.c(0));
+  const X = { x: 600, y: 590 };
+  const t0 = s.c(0);
+  draw(seg(s, at(X, 180, 360), at(X, 0, 360)), t0 + 0.3, 0.9);
+  draw(seg(s, at(X, 230, 330), at(X, 50, 330)), t0 + 0.9, 0.9);
+  const r = 95;
+  const w0 = ang(s, X, r, 0, 50, C.x), w1 = ang(s, X, r, 50, 180, C.y), w2 = ang(s, X, r, 180, 230, C.x), w3 = ang(s, X, r, 230, 360, C.y);
+
+  const RX = 1100;
+  const t1 = s.c(1);
+  draw(w0, t1 + 0.3); draw(w1, t1 + 0.9);
+  s.text(`Linear pair  →  <span style="color:${C.op}">add to 180°</span>`, RX, 330, 48, { ax: 0, weight: 600 }).fadeIn(t1 + 1.0);
+  const t2 = s.c(2);
+  draw(w2, t2 + 0.2);
+  w0.pulse(t2 + 1.2, 1.15); w2.pulse(t2 + 1.2, 1.15);
+  s.text(`Vertical angles  →  <span style="color:${C.op}">equal</span>`, RX, 430, 48, { ax: 0, weight: 600 }).fadeIn(t2 + 0.8);
+  // "one angle is fifty, its partner is fifty": a copy of the 50° corner spins half a turn about the crossing
+  // onto its vertical partner, and the 50 goes with it. Then the same for 130.
+  const t3 = s.c(3);
+  const l50 = lab(s, deg(50, C.x), X, 25, 160); l50.pop(t3 + 1.2);
+  const spin = ang(s, X, r, 0, 50, C.x, { fo: 0.7 });
+  spin.show(t3 + 2.0); spin.tw(t3 + 2.1, 1.0, { rot: 180 }, "inout"); spin.fadeOut(t3 + 3.3, 0.4);
+  fly(s, l50, lab(s, deg(50, C.x), X, 205, 160), t3 + 2.1, 1.0);
+  draw(w3, t3 + 3.7);
+  const l130 = lab(s, deg(130, C.y), X, 115, 160); l130.pop(t3 + 4.8);
+  const spin2 = ang(s, X, r, 50, 180, C.y, { fo: 0.6 });
+  spin2.show(t3 + 5.0); spin2.tw(t3 + 5.0, 0.9, { rot: 180 }, "inout"); spin2.fadeOut(t3 + 6.0, 0.4);
+  fly(s, l130, lab(s, deg(130, C.y), X, 295, 160), t3 + 5.0, 0.9);
+
+  // complementary: a right angle split in two
+  const t4 = s.c(4);
+  const V = { x: 1110, y: 780 };
+  draw(seg(s, V, at(V, 0, 200)), t4, 0.5); draw(seg(s, V, at(V, 90, 170)), t4 + 0.2, 0.5); draw(seg(s, V, at(V, 35, 190), { color: C.dim }), t4 + 0.5, 0.5);
+  draw(ang(s, V, 80, 0, 35, C.neg), t4 + 0.8, 0.5); draw(ang(s, V, 80, 35, 90, C.op), t4 + 1.1, 0.5);
+  s.text(`<b>Complementary</b> = 90°`, 1350, 700, 46, { ax: 0 }).fadeIn(t4 + 0.6);
+  // supplementary: a straight angle split in two
+  const t5 = s.c(5);
+  const S = { x: 1220, y: 930 };
+  draw(seg(s, at(S, 180, 110), at(S, 0, 110)), t5, 0.5); draw(seg(s, S, at(S, 130, 120), { color: C.dim }), t5 + 0.3, 0.5);
+  draw(ang(s, S, 60, 0, 130, C.op), t5 + 0.6, 0.6); draw(ang(s, S, 60, 130, 180, C.neg), t5 + 1.0, 0.5);
+  s.text(`<b>Supplementary</b> = 180°`, 1350, 890, 46, { ax: 0 }).fadeIn(t5 + 0.5);
+});
+
+scene("S4Triangle", s => {
+  s.text("A triangle adds to 180°", CX, 175, 64, { weight: 700 }).fadeIn(s.c(0));
+  const A = { x: 220, y: 840 }, B = { x: 880, y: 840 };
+  const Ct = at(A, 50, 660 * Math.sin(60 * RAD) / Math.sin(70 * RAD));
+  const t0 = s.c(0), r = 90;
+  const tri = path(s, [A, B, Ct], { close: true }); draw(tri, t0 + 0.3, 1.4);
+  const wA = ang(s, A, r, 0, 50, C.x), wB = ang(s, B, r, 120, 180, C.y), wC = ang(s, Ct, r, 230, 300, C.neg);
+  draw(wA, t0 + 1.6, 0.5); draw(wC, t0 + 1.9, 0.5); draw(wB, t0 + 2.2, 0.5);
+  const lA = lab(s, deg(50, C.x), A, 25, 145), lB = lab(s, deg(60, C.y), B, 150, 140), lC = lab(s, deg(70, C.neg), Ct, 265, 140);
+  [lA, lC, lB].forEach((l, i) => l.fadeIn(t0 + 1.9 + i * 0.3, 0.4, 0));
+
+  // tear off the corners...
+  const t1 = s.c(1), O = { x: 1450, y: 840 };
+  const cA = ang(s, A, r, 0, 50, C.x, { fo: 0.6 }), cB = ang(s, B, r, 120, 180, C.y, { fo: 0.6 }), cC = ang(s, Ct, r, 230, 300, C.neg, { fo: 0.6 });
+  [cA, cC, cB].forEach((c, i) => c.show(t1 + 0.3 + i * 0.3));
+  cA.shift(t1 + 0.5, 0.5, -30, 20); cC.shift(t1 + 0.8, 0.5, 0, -40); cB.shift(t1 + 1.1, 0.5, 30, 20);
+  [wA, wB, wC].forEach(w => w.tw(t1 + 0.4, 0.5, { opacity: 0.35 }));
+  // ...and line them up
+  const t2 = s.c(2);
+  const fan = [seg(s, at(O, 180, 300), at(O, 0, 300), { color: C.dim })];
+  draw(fan[0], t2, 0.6);
+  cA.tw(t2 + 0.3, 1.2, { x: O.x, y: O.y, sx: 0, sy: 0 }, "inout");
+  cC.tw(t2 + 0.7, 1.4, { x: O.x, y: O.y, sx: 0, sy: 0, rot: 180 }, "inout");
+  cB.tw(t2 + 1.1, 1.2, { x: O.x, y: O.y, sx: 0, sy: 0 }, "inout");
+  // each corner's number travels with it
+  const fA = lab(s, deg(50, C.x), O, 25, 140), fC = lab(s, deg(70, C.neg), O, 85, 140), fB = lab(s, deg(60, C.y), O, 150, 140);
+  fly(s, lA, fA, t2 + 0.3, 1.2); fly(s, lC, fC, t2 + 0.7, 1.4); fly(s, lB, fB, t2 + 1.1, 1.2);
+  // "together they make a straight line, which is one hundred eighty"
+  const sweep = ang(s, O, 215, 0, 180, WHITE, { fo: 0.07, w: 4 }); draw(sweep, t2 + 2.2, 1.0);
+  const sum = mrow(s, [deg(50, C.x), "+", deg(70, C.neg), "+", deg(60, C.y), "=", "180°"], O.x, 930, 54, { ax: 0.5, weight: 600 });
+  sum.slice(0, 5).forEach((it, i) => it.fadeIn(t2 + 2.4 + i * 0.12, 0.4, 0));
+  sum[5].fadeIn(t2 + 3.6, 0.3, 0); sum[6].pop(t2 + 3.7);
+  fan.push(fA, fC, fB, sweep, ...sum);
+
+  // isosceles and equilateral
+  const t3 = s.c(3);
+  [tri, wA, wB, wC, lA, lB, lC, cA, cB, cC, ...fan].forEach(it => it.fadeOut(t3, 0.5));
+  const iT = { x: 560, y: 880 - 189 * Math.tan(70 * RAD) }, iL = { x: 371, y: 880 }, iR = { x: 749, y: 880 };
+  draw(path(s, [iL, iR, iT], { close: true }), t3 + 0.6, 1.2);
+  draw(ticks(s, iL, iT, C.x), t3 + 1.8, 0.3); draw(ticks(s, iR, iT, C.x), t3 + 2.0, 0.3);
+  draw(ang(s, iL, 75, 0, 70, C.x), t3 + 3.4, 0.5); draw(ang(s, iR, 75, 110, 180, C.x), t3 + 3.6, 0.5);
+  draw(ang(s, iT, 75, 250, 290, C.op), t3 + 3.9, 0.5);
+  lab(s, deg(70, C.x), iL, 35, 125, 44).fadeIn(t3 + 4.0, 0.4, 0); lab(s, deg(70, C.x), iR, 145, 125, 44).fadeIn(t3 + 4.0, 0.4, 0);
+  lab(s, deg(40, C.op), iT, 270, 160, 44).fadeIn(t3 + 4.2, 0.4, 0);
+  s.text(`<b style="color:#fff">Isosceles:</b> equal sides → equal angles`, iT.x, 960, 40, { color: C.dim }).fadeIn(t3 + 2.4);
+
+  const t4 = s.c(4);
+  const eL = { x: 1130, y: 880 }, eR = { x: 1590, y: 880 }, eT = { x: 1360, y: 880 - 230 * Math.sqrt(3) };
+  draw(path(s, [eL, eR, eT], { close: true }), t4, 1.2);
+  [[eL, eR], [eR, eT], [eT, eL]].forEach(([a, b], i) => draw(ticks(s, a, b, C.op), t4 + 1.2 + i * 0.15, 0.3));
+  draw(ang(s, eL, 70, 0, 60, C.op), t4 + 1.7, 0.5); draw(ang(s, eR, 70, 120, 180, C.op), t4 + 1.9, 0.5); draw(ang(s, eT, 70, 240, 300, C.op), t4 + 2.1, 0.5);
+  lab(s, deg(60, C.op), eL, 30, 120, 44).fadeIn(t4 + 2.3, 0.4, 0); lab(s, deg(60, C.op), eR, 150, 120, 44).fadeIn(t4 + 2.3, 0.4, 0);
+  lab(s, deg(60, C.op), eT, 270, 125, 44).fadeIn(t4 + 2.3, 0.4, 0);
+  s.text(`<b style="color:#fff">Equilateral:</b> every angle is 60°`, eT.x, 960, 40, { color: C.dim }).fadeIn(t4 + 1.0);
+});
+
+scene("S5Exterior", s => {
+  s.text("The exterior angle", CX, 175, 64, { weight: 700 }).fadeIn(s.c(0));
+  const A = { x: 140, y: 820 }, B = { x: 740, y: 820 }, D = { x: 1060, y: 820 };
+  const Ct = at(A, 50, 600 * Math.sin(60 * RAD) / Math.sin(70 * RAD));
+  const t0 = s.c(0), r = 90;
+  draw(path(s, [A, B, Ct], { close: true }), t0 + 0.2, 1.2);
+  const wA = ang(s, A, r, 0, 50, C.x), wB = ang(s, B, r, 120, 180, C.y), wC = ang(s, Ct, r, 230, 300, C.neg);
+  draw(wA, t0 + 1.2, 0.5); draw(wC, t0 + 1.4, 0.5); draw(wB, t0 + 1.6, 0.5);
+  const lA = lab(s, deg(50, C.x), A, 25, 145); lA.fadeIn(t0 + 1.4, 0.4, 0);
+  const lC = lab(s, deg(70, C.neg), Ct, 265, 140); lC.fadeIn(t0 + 1.6, 0.4, 0);
+  const lB = lab(s, deg(60, C.y), B, 150, 140); lB.fadeIn(t0 + 1.8, 0.4, 0);
+  draw(seg(s, B, D, { color: C.dim }), t0 + 2.2, 0.8);
+  dotIt(s, D, C.dim, 9).fadeIn(t0 + 2.9, 0.3, 0);
+
+  const t1 = s.c(1);
+  const ext = ang(s, B, 130, 0, 120, WHITE, { fo: 0.12, w: 5 }); draw(ext, t1, 1.0);
+  const q = lab(s, "?", B, 60, 190, 64); q.pop(t1 + 0.9);
+  const RX = 1130;
+  s.text(`<span style="color:#fff">Exterior angle</span>`, RX, 340, 56, { ax: 0, weight: 700 }).fadeIn(t1 + 0.4);
+
+  const t2 = s.c(2);
+  wA.pulse(t2 + 0.2, 1.25); wC.pulse(t2 + 0.6, 1.25);
+  s.text(`= the 2 far inside angles`, RX, 430, 48, { ax: 0, color: C.dim }).fadeIn(t2 + 0.4);
+
+  const t3 = s.c(3);
+  const cA = ang(s, A, r, 0, 50, C.x, { fo: 0.65 }), cC = ang(s, Ct, r, 230, 300, C.neg, { fo: 0.65 });
+  cA.show(t3); cC.show(t3);
+  cA.tw(t3 + 0.2, 1.3, { x: B.x, y: B.y }, "inout");
+  cC.tw(t3 + 0.6, 1.5, { x: B.x, y: B.y, rot: 180 }, "inout");
+  // "Fifty plus seventy is one hundred twenty": each number flies off its corner, and the sum replaces the "?".
+  const sum = mrow(s, [deg(50, C.x), "+", deg(70, C.neg), "=", "120°"], RX, 580, 72, { weight: 600 });
+  fly(s, lA, sum[0], t3 + 7.2, 0.8); sum[1].fadeIn(t3 + 8.2, 0.3, 0); fly(s, lC, sum[2], t3 + 7.9, 0.8);
+  sum[3].fadeIn(t3 + 9.2, 0.3, 0); sum[4].fadeIn(t3 + 9.3, 0.4, 0);
+  const l120 = lab(s, "120°", B, 60, 190, 56);
+  fly(s, sum[4], l120, t3 + 9.8, 0.9); q.fadeOut(t3 + 10.4, 0.25);
+
+  // check with the straight line: 180 − 60, the 60 comes off the figure
+  const t4 = s.c(4);
+  wB.pulse(t4 + 0.3, 1.25);
+  const line = seg(s, at(B, 180, 300), D, { color: C.op, w: 9 }); draw(line, t4 + 0.6, 0.7); line.fadeOut(t4 + 4.6, 0.5);
+  const chk = mrow(s, [col("check:", C.dim), "180°", "−", deg(60, C.y), "=", "120°", col("✓", C.op)], RX, 730, 50);
+  chk[0].fadeIn(t4 + 0.6, 0.4, 0); chk[1].fadeIn(t4 + 1.8, 0.4, 0); chk[2].fadeIn(t4 + 2.4, 0.3, 0);
+  fly(s, lB, chk[3], t4 + 2.3, 0.7);
+  chk[4].fadeIn(t4 + 3.5, 0.3, 0); chk[5].fadeIn(t4 + 3.6, 0.4, 0);
+  l120.pulse(t4 + 4.3, 1.25); chk[6].pop(t4 + 4.8);
+});
+
+scene("S6Parallel", s => {
+  s.text("Parallel lines", CX, 175, 64, { weight: 700 }).fadeIn(s.c(0));
+  const y1 = 420, y2 = 740, P1 = { x: 640, y: y1 };
+  const P2 = { x: P1.x - (y2 - y1) / Math.tan(60 * RAD), y: y2 };
+  const t0 = s.c(0);
+  draw(seg(s, { x: 150, y: y1 }, { x: 1060, y: y1 }), t0 + 0.2, 0.9);
+  draw(seg(s, { x: 150, y: y2 }, { x: 1060, y: y2 }), t0 + 0.5, 0.9);
+  [y1, y2].forEach((y, i) => draw(path(s, [{ x: 940, y: y - 16 }, { x: 962, y }, { x: 940, y: y + 16 }], { w: 5 }), t0 + 1.2 + i * 0.1, 0.3));
+  draw(seg(s, at(P2, 240, 190), at(P1, 60, 190)), t0 + 1.1, 0.9);
+
+  const r = 72, small = [[0, 60], [180, 240]], big = [[60, 180], [240, 360]];
+  const W = {};
+  [["t", P1], ["b", P2]].forEach(([k, P]) => {
+    small.forEach(([a, b], i) => { W[`${k}s${i}`] = ang(s, P, r, a, b, C.x, { fo: 0.25, w: 5 }); });
+    big.forEach(([a, b], i) => { W[`${k}b${i}`] = ang(s, P, r, a, b, C.y, { fo: 0.25, w: 5 }); });
+  });
+  const t1 = s.c(1);
+  ["ts0", "ts1", "bs0", "bs1"].forEach((k, i) => draw(W[k], t1 + 0.2 + i * 0.2, 0.5));
+  ["tb0", "tb1", "bb0", "bb1"].forEach((k, i) => draw(W[k], t1 + 1.4 + i * 0.2, 0.5));
+  const l60 = lab(s, deg(60, C.x), P1, 28, 125, 44); l60.fadeIn(t1 + 1.2, 0.4, 0);
+  const l120 = lab(s, deg(120, C.y), P1, 118, 125, 44); l120.fadeIn(t1 + 2.4, 0.4, 0);
+  const RX = 1150;
+  const row = (y, name, rule, color) => [s.text(name, RX, y, 50, { ax: 0, weight: 700, color }), s.text(rule, RX, y + 58, 42, { ax: 0, color: C.dim })];
+  row(310, "Only 2 sizes", `<span style="color:${C.x}">small</span> + <span style="color:${C.y}">big</span> = 180°`, WHITE).forEach((it, i) => it.fadeIn(t1 + 0.8 + i * 1.2));
+
+  // Each pair: the letter shape that finds it, a bright copy of the top angle, and then that copy MOVES onto its
+  // partner (slides down the transversal, or spins half a turn), so she sees the two angles are the same size.
+  const bright = (P, a, b, c) => ang(s, P, r, a, b, c, { fo: 0.75, w: 8 });
+  const letter = (shape, t, tEnd) => {
+    const sh = path(s, shape, { color: C.op, w: 12 });
+    draw(sh, t + 0.1, 0.9); sh.tw(t + 1.0, 0.3, { opacity: 0.55 });
+    if (tEnd) sh.fadeOut(tEnd, 0.4);
+  };
+  const t2 = s.c(2), t3 = s.c(3), t4 = s.c(4);
+  // corresponding: "the same spot at each crossing"
+  letter([at(P1, 0, 260), P1, at(P1, 60, 120), P1, P2, at(P2, 0, 260)], t2, t3);
+  const c1 = bright(P1, 0, 60, C.x), c2 = bright(P1, 0, 60, C.x);
+  draw(c1, t2 + 0.9, 0.5);
+  c2.show(t2 + 1.5); c2.tw(t2 + 1.6, 1.3, { x: P2.x, y: P2.y }, "inout");
+  const l60b = lab(s, deg(60, C.x), P2, 28, 125, 44); fly(s, l60, l60b, t2 + 1.6, 1.3);
+  [c1, c2].forEach(it => it.fadeOut(t3, 0.4));
+  row(460, "Corresponding  (F)", "equal", C.op).forEach((it, i) => it.fadeIn(t2 + 0.5 + i * 0.6));
+  // alternate interior: the Z; the top angle spins half a turn onto its partner
+  letter([at(P1, 180, 260), P1, P2, at(P2, 0, 260)], t3, t4);
+  const z1 = bright(P1, 180, 240, C.x), z2 = bright(P1, 180, 240, C.x);
+  draw(z1, t3 + 0.9, 0.5);
+  const l60z = lab(s, deg(60, C.x), P1, 210, 122, 44); fly(s, l60, l60z, t3 + 0.9, 0.8);
+  z2.show(t3 + 1.8); z2.tw(t3 + 1.9, 1.4, { x: P2.x, y: P2.y, rot: 180 }, "inout");
+  l60z.pulse(t3 + 3.9, 1.3); l60b.pulse(t3 + 3.9, 1.3);
+  [z1, z2].forEach(it => it.fadeOut(t4, 0.4));
+  row(610, "Alternate interior  (Z)", "equal", C.op).forEach((it, i) => it.fadeIn(t3 + 0.5 + i * 0.6));
+  // same-side interior: slide the top one down beside its partner; together they fill a straight line
+  letter([at(P1, 180, 260), P1, P2, at(P2, 180, 260)], t4, 0);
+  const s1 = bright(P1, 180, 240, C.x), s2 = bright(P2, 60, 180, C.y), s3 = bright(P1, 180, 240, C.x);
+  draw(s1, t4 + 0.9, 0.5); draw(s2, t4 + 1.3, 0.5);
+  const l120b = lab(s, deg(120, C.y), P2, 118, 125, 44); fly(s, l120, l120b, t4 + 1.3, 1.0);
+  s3.show(t4 + 3.9); s3.tw(t4 + 4.0, 1.1, { x: P2.x, y: P2.y }, "inout");
+  const sum = mrow(s, [deg(60, C.x), "+", deg(120, C.y), "=", "180°"], 720, 900, 50, { ax: 0.5, weight: 600 });
+  fly(s, l60z, sum[0], t4 + 4.6, 0.7); sum[1].fadeIn(t4 + 5.0, 0.3, 0); fly(s, l120b, sum[2], t4 + 4.9, 0.7);
+  sum[3].fadeIn(t4 + 5.6, 0.3, 0); sum[4].pop(t4 + 5.7);
+  row(760, "Same-side interior  (C)", "add to 180°", C.op).forEach((it, i) => it.fadeIn(t4 + 0.5 + i * 0.6));
+});
+
+scene("S7Polygon", s => {
+  const title = s.text("Angles in a polygon", CX, 175, 64, { weight: 700 }); title.fadeIn(s.c(0));
+  const Z = { x: 520, y: 610 }, V = [90, 162, 234, 306, 18].map(a => at(Z, a, 290));
+  const t0 = s.c(0), t4 = s.c(4);
+  const gone = [];
+  const keep = it => (gone.push(it), it);
+  draw(keep(path(s, V, { close: true })), t0 + 0.2, 1.6);
+  keep(dotIt(s, V[0], C.x, 13)).pop(t0 + 2.0);
+  draw(keep(seg(s, V[0], V[2], { color: C.x, w: 5 })), t0 + 2.6, 0.7);
+  draw(keep(seg(s, V[0], V[3], { color: C.x, w: 5 })), t0 + 3.2, 0.7);
+
+  const t1 = s.c(1);
+  const cols = [C.x, C.y, C.neg], l180 = [];
+  [[V[0], V[1], V[2]], [V[0], V[2], V[3]], [V[0], V[3], V[4]]].forEach((T, i) => {
+    keep(shp(s, `<path d="M${T.map(pp).join(" L")} Z" fill="${cols[i]}" fill-opacity="0.28"/>`, T[0])).fadeIn(t1 + 0.3 + i * 0.5, 0.5, 0);
+    const g = { x: (T[0].x + T[1].x + T[2].x) / 3, y: (T[0].y + T[1].y + T[2].y) / 3 + (i === 1 ? 30 : 0) };
+    l180.push(keep(s.text("180°", g.x, g.y, 44, { weight: 700, color: cols[i] }))); l180[i].pop(t1 + 0.5 + i * 0.5);
+  });
+  // "three times one eighty": the three triangles' 180s fly out and merge into one "3 × 180°"
+  const RX = 1370, t2 = s.c(2);
+  const tot = mrow(s, ["3", "×", "180°", "=", "540°"], RX, 340, 76, { ax: 0.5, weight: 700 });
+  tot.forEach(keep);
+  l180.forEach((l, i) => fly(s, l, tot[2], t2 + 1.4 + i * 0.15, 0.9));
+  tot[0].pop(t2 + 1.6); tot[1].fadeIn(t2 + 1.9, 0.3, 0);
+  tot[3].fadeIn(t2 + 3.5, 0.3, 0); tot[4].pop(t2 + 3.6);
+  // the general rule; then it is used for 4, 5 and 6 sides, and (n − 2) evaluates in place as the voice says it
+  const t3 = s.c(3);
+  const rule = mrow(s, [`<i>n</i> sides`, "→", `(<i>n</i> − 2) × 180°`], RX, 480, 64, { ax: 0.5, weight: 700, color: C.x });
+  rule.forEach(keep);
+  rule[0].write(t3 + 0.2, 0.5); rule[1].write(t3 + 0.7, 0.3); rule[2].write(t3 + 1.0, 0.8);
+  [["square", 4], ["pentagon", 5], ["hexagon", 6]].forEach(([name, n], i) => {
+    const y = 600 + i * 84;
+    const nm = keep(s.text(name, 1170, y, 46, { ax: 1, color: C.dim }));
+    const [P, T, Rs] = mrow(s, [`(${col(n, C.x)} − 2)`, "× 180°", `= ${(n - 2) * 180}°`], 1205, y, 46).map(keep);
+    const k = keep(s.text(String(n - 2), P.base.x, y, 46, { ax: 0 }));
+    nm.fadeIn(t3 + 1.5 + i * 0.2, 0.4, 0);
+    s.morph([rule[2]], [P, T], t3 + 1.5 + i * 0.2, 0.8);
+    evalIn(s, P, k, [T, Rs], t3 + 2.9 + i * 0.15, 0.7);
+    Rs.fadeIn(t3 + 3.7 + i * 0.15, 0.4, 0);
+  });
+  gone.forEach(it => it.fadeOut(t4, 0.5));
+  title.fadeOut(t4, 0.4);
+
+  // similar triangles: same angles, different sizes
+  s.text("Similar triangles", CX, 175, 64, { weight: 700 }).fadeIn(t4 + 0.5);
+  s.text("same shape, different size  →  matching angles are equal", CX, 260, 44, { color: C.dim }).fadeIn(t4 + 1.0);
+  const tri = (A, base, k, t) => {
+    const B = { x: A.x + base, y: A.y }, T = at(A, 40, base * Math.sin(75 * RAD) / Math.sin(65 * RAD));
+    draw(path(s, [A, B, T], { close: true }), t, 0.9);
+    const r = 60 * k;
+    draw(ang(s, A, r, 0, 40, C.x), t + 0.9, 0.4); draw(ang(s, B, r, 105, 180, C.y), t + 1.1, 0.4); draw(ang(s, T, r, 220, 285, C.neg), t + 1.3, 0.4);
+    const sz = 38 + 8 * k;
+    lab(s, deg(40, C.x), A, 20, 100 * k + 20, sz).fadeIn(t + 1.2, 0.4, 0);
+    lab(s, deg(75, C.y), B, 142.5, 85 * k + 20, sz).fadeIn(t + 1.4, 0.4, 0);
+    lab(s, deg(65, C.neg), T, 252.5, 95 * k + 20, sz).fadeIn(t + 1.6, 0.4, 0);
+  };
+  tri({ x: 230, y: 900 }, 420, 1, t4 + 1.0);
+  tri({ x: 900, y: 900 }, 760, 1.7, t4 + 1.6);
+});
+
+scene("S8Question", s => {
+  s.text("Your real question", CX, 175, 56, { color: C.x, weight: 700 }).fadeIn(s.c(0));
+  const card = `<div class="card" style="display:flex;align-items:center;gap:70px;text-align:left;padding:40px 60px">` +
+    `<div><div style="font-size:36px;color:${C.dim};margin-bottom:26px">Practice Test 1 · Question 8</div>` +
+    `<div style="font-size:58px;margin-bottom:18px">In the figure, RT = TU.</div>` +
+    `<div style="font-size:58px">What is the value of ${m("x")}?</div></div>${figM8()}</div>`;
+  s.add(card, CX, 480).fadeIn(s.c(0) + 0.3);
+  s.text(`<span style="color:${C.dim}">Your answer:</span> <b style="color:${C.neg}">100 ✗</b> <span style="display:inline-block;width:90px"></span><span style="color:${C.dim}">Time:</span> <b>1 min 10 sec</b>`, CX, 790, 54).fadeIn(s.c(1));
+  s.text(`100 is in the figure… but it isn't ${m("x")}.`, CX, 900, 58, { color: C.x, weight: 600 }).pop(s.c(2));
+});
+
+// The big M8 figure used by the walkthrough scenes.
+function bigM8(s, shown) {
+  const R = { x: 150, y: 830 }, U = { x: 750, y: 830 }, V = { x: 1010, y: 830 };
+  const T = { x: 450, y: 830 - 300 * Math.tan(50 * RAD) };
+  const o = shown ? { show: true } : {};
+  const items = [seg(s, R, V, o), seg(s, R, T, o), seg(s, T, U, o)];
+  items.push(lab(s, "R", R, 215, 50, 52, o), lab(s, "T", T, 90, 48, 52, o), lab(s, "U", U, 270, 50, 52, o), lab(s, "V", V, 270, 50, 52, o));
+  const l80 = lab(s, deg(80, C.op), T, 270, 125, 48, o);
+  items.push(ang(s, T, 80, 230, 310, C.op, o), l80);
+  const xArc = ang(s, U, 85, 0, 130, WHITE, { ...o, fo: 0.12, w: 5 });
+  const xLab = lab(s, XD, U, 65, 150, 56, o);
+  return { R, U, V, T, xArc, xLab, l80 };
+}
+
+scene("S9Solve", s => {
+  s.text(`Practice Test 1 · Q8:   RT = TU.   Find ${m("x")}.`, CX, 175, 44, { color: C.dim, show: true });
+  const F = bigM8(s, true);
+  const { R, U, T } = F;
+  const SX = 1080, BX = 1150, SZ = 58;
+  const t0 = s.c(0);
+  s.badge(1, "Isosceles: RT = TU", SX, 280).fadeIn(t0);
+  const k1 = ticks(s, R, T, C.x), k2 = ticks(s, T, U, C.x);
+  draw(k1, t0 + 1.0, 0.3); draw(k2, t0 + 1.3, 0.3); k1.pulse(t0 + 1.8, 1.5); k2.pulse(t0 + 1.8, 1.5);
+  const t1 = s.c(1);
+  const wR = ang(s, R, 85, 0, 50, C.x), wU = ang(s, U, 85, 130, 180, C.x);
+  draw(wR, t1 + 0.3, 0.6); draw(wU, t1 + 1.6, 0.6);
+  s.text(`${ANG}R = ${ANG}U`, BX, 362, 54, { ax: 0, weight: 600 }).fadeIn(t1 + 1.0);
+
+  // 2. 180 − 80: the 80 flies in from the top corner; then 100 drops into the next line and is halved.
+  const t2 = s.c(2);
+  s.badge(2, "Triangle = 180°", SX, 460).fadeIn(t2);
+  const a = mrow(s, ["180", "−", col("80", C.op), "=", "100"], BX, 545, SZ);
+  a[0].fadeIn(t2 + 3.8, 0.4, 0); a[1].fadeIn(t2 + 4.4, 0.3, 0);
+  F.l80.pulse(t2 + 4.0, 1.3); fly(s, F.l80, a[2], t2 + 4.4, 0.8);
+  a[3].fadeIn(t2 + 5.7, 0.3, 0); a[4].fadeIn(t2 + 5.8, 0.4, 0);
+  wR.pulse(t2 + 7.0, 1.25); wU.pulse(t2 + 7.0, 1.25);
+  const t3 = s.c(3);
+  const b = mrow(s, ["100", "÷", "2", "=", col("50", C.x)], BX, 625, SZ);
+  fly(s, a[4], b[0], t3, 0.7);
+  b[1].fadeIn(t3 + 0.4, 0.3, 0); b[2].fadeIn(t3 + 0.5, 0.3, 0);
+  b[3].fadeIn(t3 + 1.0, 0.3, 0); b[4].fadeIn(t3 + 1.1, 0.4, 0);
+  // "Write fifty on both corners": the 50 flies from the work onto the figure, twice.
+  const lR50 = lab(s, deg(50, C.x), R, 25, 140), lU50 = lab(s, deg(50, C.x), U, 155, 140);
+  fly(s, b[4], lR50, t3 + 2.3, 1.0); fly(s, b[4], lU50, t3 + 2.9, 0.9);
+
+  // 3. Straight line at U: x = 180 − 50, the 50 flies in from the figure, and the line collapses to x = 130.
+  const t4 = s.c(4);
+  s.badge(3, "Straight line = 180°", SX, 722).fadeIn(t4);
+  draw(F.xArc, t4 + 0.6, 0.8); wU.pulse(t4 + 2.2, 1.25); lU50.pulse(t4 + 2.2, 1.25);
+  const line = seg(s, at(U, 180, 240), at(U, 0, 240), { color: C.op, w: 9 });
+  draw(line, t4 + 3.9, 0.8);
+  const t5 = s.c(5);
+  line.fadeOut(t5 + 2.6, 0.5);
+  const c = mrow(s, [m("x"), "=", "180", "−", col("50", C.x)], BX, 808, SZ);
+  c[0].fadeIn(t5, 0.3, 0); c[1].fadeIn(t5, 0.3, 0); c[2].fadeIn(t5 + 0.1, 0.4, 0); c[3].fadeIn(t5 + 0.7, 0.3, 0);
+  fly(s, lU50, c[4], t5 + 0.6, 0.7);
+  const d = mrow(s, [m("x"), "=", "130"], BX, 900, SZ);
+  s.morph([c[0]], d[0], t5 + 1.7, 0.9); s.morph([c[1]], d[1], t5 + 1.7, 0.9); s.morph([c[2], c[3], c[4]], d[2], t5 + 1.7, 0.9);
+  const l = d[0].rect(), r = d[2].rect();
+  s.ring({ cx: (l.l + r.r) / 2, cy: l.cy, w: r.r - l.l, h: l.h }, C.x, 18).pop(t5 + 3.1);
+  // ...and x's value is written on the figure.
+  const xVal = lab(s, `${XD} = 130°`, U, 65, 175, 52);
+  fly(s, d[2], xVal, t5 + 3.2, 0.9, "130"); F.xLab.fadeOut(t5 + 3.8, 0.3);
+});
+
+scene("S10Check", s => {
+  const F = bigM8(s, true);
+  const { R, U, T } = F;
+  [[R, T], [T, U]].forEach(([a, b]) => ticks(s, a, b, C.x).show(0));
+  const wR = ang(s, R, 85, 0, 50, C.x, { show: true }), wU = ang(s, U, 85, 130, 180, C.x, { show: true });
+  const lR = lab(s, deg(50, C.x), R, 25, 140, 48, { show: true }), lU = lab(s, deg(50, C.x), U, 155, 140, 48, { show: true });
+  F.xArc.show(0);
+  const SX = 1080, BX = 1150;
+  const t0 = s.c(0);
+  s.text("Where did 100 come from?", SX, 300, 56, { ax: 0, weight: 700 }).fadeIn(t0);
+  // "fifty plus fifty": each 50 flies off its corner into the sum
+  const t1 = s.c(1);
+  wR.pulse(t1 + 0.4, 1.3); wU.pulse(t1 + 0.8, 1.3);
+  const q = mrow(s, [col("50", C.x), "+", col("50", C.x), "=", `<b style="color:${C.neg}">100</b>`], BX, 400, 58);
+  fly(s, lR, q[0], t1 + 1.8, 0.8); q[1].fadeIn(t1 + 2.9, 0.3, 0); fly(s, lU, q[2], t1 + 2.7, 0.7);
+  q[3].fadeIn(t1 + 3.6, 0.3, 0); q[4].pop(t1 + 3.7);
+  s.text(`the two base angles, not ${m("x")}`, BX, 475, 44, { ax: 0, color: C.dim }).fadeIn(t1 + 4.2);
+
+  const t2 = s.c(2);
+  s.badge("✓", "Check: exterior angle shortcut", SX, 600).fadeIn(t2);
+  const wT = ang(s, T, 80, 230, 310, C.op, { show: true, fo: 0.3 });
+  wT.pulse(t2 + 4.9, 1.3); wR.pulse(t2 + 5.2, 1.3);
+  const cR = ang(s, R, 85, 0, 50, C.x, { fo: 0.7 }), cT = ang(s, T, 80, 230, 310, C.op, { fo: 0.7 });
+  cR.show(t2 + 5.7); cT.show(t2 + 5.7);
+  cR.tw(t2 + 5.8, 1.3, { x: U.x, y: U.y }, "inout");
+  cT.tw(t2 + 6.0, 1.5, { x: U.x, y: U.y, rot: 180 }, "inout");
+  // "Eighty plus fifty is one thirty": the numbers come off the figure, and the result goes back onto it.
+  const k = mrow(s, [m("x"), "=", deg(80, C.op), "+", deg(50, C.x), "=", "130", col("✓", C.op)], BX, 690, 58, { weight: 600 });
+  k[0].fadeIn(t2 + 1.8, 0.4, 0); k[1].fadeIn(t2 + 1.9, 0.4, 0);
+  fly(s, F.l80, k[2], t2 + 6.5, 0.7); k[3].fadeIn(t2 + 7.4, 0.3, 0); fly(s, lR, k[4], t2 + 7.2, 0.7);
+  k[5].fadeIn(t2 + 8.3, 0.3, 0); k[6].fadeIn(t2 + 8.4, 0.4, 0);
+  const xVal = lab(s, `${XD} = 130°`, U, 65, 175, 52);
+  fly(s, k[6], xVal, t2 + 8.9, 0.8, "130"); F.xLab.fadeOut(t2 + 9.4, 0.3);
+  k[7].pop(t2 + 9.6);
+
+  s.text("Write every angle you find on the figure.", CX, 965, 56, { color: C.x, weight: 700 }).pop(s.c(3));
+});
+
+scene("S11Recap", s => {
+  s.text("Your angle facts", CX, 175, 72, { weight: 700 }).fadeIn(s.c(0));
+  const lines = [
+    "Straight line = 180°.   Around a point = 360°.",
+    "Vertical angles are equal.",
+    "Triangle = 180°.   Exterior angle = the 2 far inside angles.",
+    "Parallel lines: only 2 sizes.   n sides: (n − 2) × 180°.",
+    "Write every angle on the figure until you reach x.",
+  ];
+  lines.forEach((l, i) => s.badge(i + 1, `<span style="color:#fff;font-weight:500">${m(l)}</span>`, 220, 300 + i * 118, { size: 46 })
+    .fadeIn(s.c(i + 1), 0.6, 0).set(s.c(i + 1), { sx: -30 }).tw(s.c(i + 1), 0.6, { sx: 0 }));
+  s.text("Next: Workbook Unit 6 practice.  You've got this!", CX, 920, 54, { color: C.op, weight: 700 }).pop(s.c(6));
+});
+
+}
+
+</script>
+<script src="../boot.js"></script>
+</body></html>

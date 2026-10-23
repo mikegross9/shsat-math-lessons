@@ -1,0 +1,315 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><title>Unit 4 · Ratios, Rates &amp; Unit Conversions</title>
+<link rel="stylesheet" href="../lesson.css">
+<style>
+  /* Unit 4 only: stacked fractions, and a roomier layout for long answer choices / two-blank answers. */
+  .u4fr { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; line-height: 1.08; margin: 0 0.1em; }
+  .u4fr > .n { border-bottom: 0.065em solid currentColor; padding: 0 0.18em 0.03em; }
+  .u4fr > .d { padding: 0.03em 0.18em 0; }
+  .u4u { color: #8ecae6; font-style: italic; }
+  .choices.u4wide { gap: 18px; }
+  .choices.u4wide .choice { width: 790px; height: 96px; font-size: 42px; gap: 22px; padding: 0 26px; }
+  .fill.u4two { font-size: 56px; }
+  #summary { gap: 14px; padding-top: 112px; }
+  .sumtitle { font-size: 58px; }
+  .score { font-size: 40px; } .score b { font-size: 52px; }
+  .sumtable { font-size: 23px; }
+  .sumtable td, .sumtable th { padding: 2px 22px; }
+  .sumtable td.qq { max-width: 1050px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fill.u4two .num { width: 210px; font-size: 56px; }
+</style></head>
+<body data-unit="unit4"><div id="stage"></div>
+<script src="lesson-data.js"></script>
+<script src="../engine.js"></script>
+<script>
+
+// Quiz layout helpers (this unit only): widen long multiple-choice answers; shrink two-blank answers.
+new MutationObserver(() => {
+  document.querySelectorAll("#quiz .choices:not(.u4chk)").forEach(g => {
+    g.classList.add("u4chk");
+    if ([...g.querySelectorAll(".choice")].some(c => c.textContent.length > 14)) g.classList.add("u4wide");
+  });
+  document.querySelectorAll("#quiz .fill:not(.u4chk)").forEach(f => {
+    f.classList.add("u4chk");
+    if (f.querySelectorAll("input").length > 1) f.classList.add("u4two");
+  });
+}).observe(document.getElementById("stage"), { childList: true, subtree: true });
+
+// Stacked fraction (HTML strings in, HTML out).
+const fr = (a, b) => `<span class="u4fr"><span class="n">${a}</span><span class="d">${b}</span></span>`;
+const U = t => `<span class="u4u">${t}</span>`;
+// A row "left = right" (HTML sides) whose "=" sits at (x, y), like s.eq but allowing fractions.
+function feq(s, l, r, x, y, size = 84, o = {}) {
+  const html = `<div class="eqrow" style="font-size:${size}px;align-items:center"><div class="L"><span class="side">${l}</span></div>` +
+    `<div class="E" style="margin:0 ${o.gap ?? 0.45}em">=</div><div class="R"><span class="side">${r}</span></div></div>`;
+  return s.add(html, x, y, o);
+}
+// Cross-out line over a box.
+function strike(s, r, t, color = C.neg, ang = -16) {
+  const it = s.add(`<div style="width:${r.w + 18}px;height:7px;border-radius:4px;background:${color}"></div>`, r.cx, r.cy);
+  it.base.rot = ang; it.apply(it.base);
+  return it.write(t, 0.35);
+}
+// Horizontal brace from x1 to x2; its tip points down (label below) or up.
+function brace(s, x1, x2, y, color = "#fff", down = true) {
+  const w = x2 - x1, m2 = w / 2, k = down ? 1 : -1, y0 = down ? 4 : 30;
+  const p = `M2 ${y0} Q2 ${y0 + 13 * k} 18 ${y0 + 13 * k} H${m2 - 16} Q${m2} ${y0 + 13 * k} ${m2} ${y0 + 26 * k} Q${m2} ${y0 + 13 * k} ${m2 + 16} ${y0 + 13 * k} H${w - 18} Q${w - 2} ${y0 + 13 * k} ${w - 2} ${y0}`;
+  return s.add(`<svg width="${w}" height="34"><path d="${p}" stroke="${color}" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`, (x1 + x2) / 2, y);
+}
+const box = (w, h, col, txt = "", fs = 52) => `<div style="width:${w}px;height:${h}px;box-sizing:border-box;border:4px solid ${col};background:${col}24;border-radius:12px;display:flex;align-items:center;justify-content:center;color:${col};font-size:${fs}px;font-weight:700">${txt}</div>`;
+const bar = (w, h, col) => `<div style="width:${w}px;height:${h}px;border-radius:${h / 2}px;background:${col}"></div>`;
+
+// Segment W—X—Y—Z drawn to scale (WX = 27, XY = 12, YZ = 6), as an SVG for the question card.
+function segSVG(w) {
+  const x0 = 30, k = (w - 60) / 45, P = [["W", 0], ["X", 27], ["Y", 39], ["Z", 45]];
+  return `<svg width="${w}" height="120"><line x1="${x0}" y1="40" x2="${x0 + 45 * k}" y2="40" stroke="#fff" stroke-width="5"/>` +
+    P.map(([n, v]) => `<circle cx="${x0 + v * k}" cy="40" r="9" fill="#fff"/><text x="${x0 + v * k}" y="100" fill="#fff" font-size="40" font-weight="600" text-anchor="middle" font-family="Avenir Next">${n}</text>`).join("") + `</svg>`;
+}
+
+function build() {
+
+scene("S1Title", s => {
+  const unit = s.text("UNIT 4", CX, 250, 44, { color: C.op, weight: 700, style: { letterSpacing: "0.3em" } });
+  const title = s.text(`<div style="text-align:center;line-height:1.08">Ratios, Rates &amp;<br>Unit Conversions</div>`, CX, 415, 112, { weight: 700 });
+  const sub = s.text("SHSAT Math with Victoria", CX, 600, 48, { color: C.dim });
+  unit.fadeIn(s.c(0)); title.write(s.c(0) + 0.3, 1.4); sub.fadeIn(s.c(0) + 1.6);
+  const stat = s.text(`Practice tests: <b style="color:${C.neg}">10 of 17</b> ratio, rate &amp; measurement questions missed`, CX, 780, 48, { color: C.dim });
+  stat.fadeIn(s.c(1)); stat.fadeOut(s.c(2));
+  s.text(`Find what <span style="color:${C.op}">one share</span> is worth. Then multiply.`, CX, 780, 58, { color: C.x, weight: 600 }).fadeIn(s.c(2) + 0.3);
+});
+
+scene("S2Parts", s => {
+  s.text("A ratio is a recipe", CX, 170, 66, { weight: 700 }).fadeIn(s.c(0));
+  const L = `<span style="color:${C.x}">lemonade</span>`, T = `<span style="color:${C.y}">tea</span>`;
+  const t1 = s.c(1);
+  s.text(`${L} : ${T} = <b style="color:${C.x}">3</b> : <b style="color:${C.y}">5</b>`, CX, 290, 72).fadeIn(t1);
+  const BW = 150, X0 = CX - 4 * BW, TY = 510;
+  const bx = i => X0 + BW * i + BW / 2;
+  const boxes = [...Array(8)].map((_, i) => s.add(box(BW - 10, 110, i < 3 ? C.x : C.y), bx(i), TY));
+  boxes.forEach((b, i) => b.fadeIn(t1 + 1.0 + i * 0.18, 0.4, -30));
+  const lemX = bx(1), teaX = (bx(3) + bx(7)) / 2;
+  const g1 = s.text("3 parts", lemX, 405, 46, { color: C.x, weight: 600 }), g2 = s.text("5 parts", teaX, 405, 46, { color: C.y, weight: 600 });
+  g1.fadeIn(t1 + 3.8); g2.fadeIn(t1 + 5.3);
+
+  const t2 = s.c(2);
+  brace(s, X0 + 5, X0 + 8 * BW - 5, 600).fadeIn(t2, 0.5, 0);
+  const l1 = s.text("8 equal parts", CX, 665, 52, { weight: 600 });
+  l1.fadeIn(t2 + 0.3);
+
+  const t3 = s.c(3);
+  l1.fadeOut(t3 + 0.7);
+  s.text(`8 parts = <b style="color:${C.x}">40 cups</b>`, CX, 665, 52, { weight: 600 }).fadeIn(t3 + 0.9);
+  s.text("one part = 40 ÷ 8 = 5 cups", CX, 770, 60, { color: C.op, weight: 600 }).fadeIn(t3 + 3.0);
+  boxes.forEach((b, i) => s.text("5", bx(i), TY, 56, { color: i < 3 ? C.x : C.y, weight: 700 }).pop(t3 + 5.0 + i * 0.1));
+
+  const t4 = s.c(4);
+  g1.fadeOut(t4 + 1.4); g2.fadeOut(t4 + 4.6);
+  s.text("3 × 5 = 15 cups", lemX, 405, 48, { color: C.x, weight: 700 }).pop(t4 + 1.8);
+  s.text("5 × 5 = 25 cups", teaX, 405, 48, { color: C.y, weight: 700 }).pop(t4 + 5.0);
+
+  s.text(`${L} = ${fr("3", "8")} of the whole <span style="color:${C.neg};margin-left:30px">not ${fr("3", "5")}</span>`, CX, 895, 56, { weight: 600 }).fadeIn(s.c(5));
+});
+
+scene("S3Proportion", s => {
+  s.text("Proportion: two equal ratios", CX, 170, 66, { weight: 700 }).fadeIn(s.c(0));
+  // Map: scale bar 2 in = 160 px, so the 7 in road is 560 px.
+  const map = s.add(`<svg width="660" height="430">
+    <rect x="3" y="3" width="654" height="424" rx="26" fill="rgba(255,255,255,0.04)" stroke="#9aa5b8" stroke-width="3"/>
+    <path d="M60 170 C 200 120, 330 230, 600 170" stroke="#9aa5b8" stroke-width="5" stroke-dasharray="14 10" fill="none"/>
+    <line x1="50" y1="105" x2="610" y2="105" stroke="${C.x}" stroke-width="4"/>
+    <line x1="50" y1="90" x2="50" y2="120" stroke="${C.x}" stroke-width="4"/><line x1="610" y1="90" x2="610" y2="120" stroke="${C.x}" stroke-width="4"/>
+    <text x="330" y="80" fill="${C.x}" font-size="40" font-weight="700" text-anchor="middle" font-family="Avenir Next">7 in = ? mi</text>
+    <circle cx="60" cy="170" r="14" fill="${C.op}"/><circle cx="600" cy="170" r="14" fill="${C.op}"/>
+    <rect x="50" y="320" width="80" height="22" fill="#fff"/><rect x="130" y="320" width="80" height="22" fill="none" stroke="#fff" stroke-width="4"/>
+    <rect x="50" y="320" width="160" height="22" fill="none" stroke="#fff" stroke-width="4"/>
+    <text x="130" y="305" fill="#fff" font-size="36" font-weight="600" text-anchor="middle" font-family="Avenir Next">2 in</text>
+    <text x="236" y="344" fill="#fff" font-size="36" font-weight="600" font-family="Avenir Next">= 15 mi</text>
+    <text x="330" y="400" fill="#9aa5b8" font-size="30" text-anchor="middle" font-family="Avenir Next">map scale</text></svg>`, 430, 600);
+  map.fadeIn(s.c(1));
+
+  const EX = 1330;
+  const t2 = s.c(2);
+  const e1 = feq(s, fr("2", "15"), fr("7", m("x")), EX, 400, 84, { gap: 1.1 });
+  e1.fadeIn(t2 + 0.2);
+  const fL = e1.rect(".L .u4fr");
+  const lab = (t, y, c) => s.text(t, fL.l - 36, y, 44, { color: c, weight: 600, ax: 1 });
+  const n1 = e1.rect(".L .n"), d1 = e1.rect(".L .d"), n2 = e1.rect(".R .n"), d2 = e1.rect(".R .d");
+  lab("inches", n1.cy, C.x).fadeIn(t2 + 4.0); lab("miles", d1.cy, C.y).fadeIn(t2 + 5.2);
+
+  const t3 = s.c(3);
+  // Cross-multiply: two curves that dip under the "=" so it stays readable.
+  const cx0 = (n1.cx + n2.cx) / 2, cy0 = (n1.cy + d1.cy) / 2 + 130;
+  const crv = (a, b, c) => { const x1 = a.r + 8, y1 = a.cy + 6, x2 = b.l - 8, y2 = b.cy + 6;
+    return `<path d="M${x1} ${y1} Q${cx0} ${cy0} ${x2} ${y2}" stroke="${c}" stroke-width="6" fill="none" stroke-linecap="round"/>`; };
+  s.add(`<svg width="1920" height="1080" style="display:block">${crv(n1, d2, C.op)}${crv(d1, n2, C.neg)}</svg>`, 0, 0, { ax: 0, ay: 0 }).write(t3 + 0.3, 1.0);
+  const e2 = feq(s, `<span style="color:${C.op}">2</span>${m("x")}`, `<span style="color:${C.neg}">7 × 15</span>`, EX, 600);
+  e2.fadeIn(t3 + 1.8);
+  e2.fadeOut(t3 + 5.1, 0.3);
+  const e2b = s.eq("2x = 105", EX, 600);
+  e2b.fadeIn(t3 + 5.3, 0.4, 0);
+
+  const t4 = s.c(4);
+  s.ops(e2b, "÷ 2", "÷ 2", 700).forEach(it => it.fadeIn(t4));
+  const e3 = s.eq("x = 52.5", EX, 825);
+  e3.fadeIn(t4 + 1.4);
+  s.ring({ cx: (e3.L().l + e3.R().r) / 2, cy: e3.L().cy, w: e3.R().r - e3.L().l, h: e3.L().h }, C.x, 22).pop(t4 + 2.4);
+  s.text("miles", e3.R().r + 50, 835, 50, { color: C.y, weight: 600, ax: 0 }).fadeIn(t4 + 2.6);
+
+  s.text(`check:  7 ÷ 2 = 3.5,   3.5 × 15 = 52.5 <span style="color:${C.op}">✓</span>`, CX, 960, 50).write(s.c(5) + 1.2, 6.0);
+});
+
+scene("S4Rates", s => {
+  s.text(`Rates: <span style="color:${C.op}">per</span> means divide`, CX, 165, 66, { weight: 700 }).fadeIn(s.c(0));
+  s.text(`Lena walks <b>6 km</b> in <b>1 h 30 min</b>.`, CX, 275, 56).fadeIn(s.c(1));
+  const t2 = s.c(2);
+  s.text("1 h 30 min =", 880, 385, 60, { ax: 1 }).fadeIn(t2);
+  const wrong = s.text("1.3 h", 920, 385, 60, { color: C.neg, ax: 0 });
+  wrong.fadeIn(t2 + 3.9);
+  strike(s, wrong.rect(), t2 + 5.0);
+  s.text("1.5 h", 1160, 385, 60, { color: C.op, weight: 700, ax: 0 }).pop(t2 + 8.8);
+  s.text(`30 min = ${fr("30", "60")} hour = 0.5 hour`, CX, 490, 40, { color: C.dim }).fadeIn(t2 + 6.2);
+  const t3 = s.c(3);
+  s.text(`rate = 6 km ÷ 1.5 h = <b style="color:${C.x}">4 km per hour</b>`, CX, 600, 58).fadeIn(t3);
+  const t4 = s.c(4);
+  s.add(`<div style="border:4px solid ${C.op};border-radius:18px;padding:8px 34px;font-size:50px;font-weight:600;color:${C.op}">distance = rate × time</div>`, CX, 705).pop(t4 + 0.8);
+  // Double number line: 4 km for every hour.
+  const W0 = 1240, k = 290, x0 = 40;
+  let svg = `<svg width="${W0 + 40}" height="170"><line x1="${x0 - 20}" y1="80" x2="${x0 + 4 * k + 40}" y2="80" stroke="#fff" stroke-width="5"/>`;
+  for (let i = 0; i <= 4; i++) {
+    const x = x0 + i * k, hl = i === 4;
+    svg += `<line x1="${x}" y1="64" x2="${x}" y2="96" stroke="#fff" stroke-width="5"/>` +
+      `<text x="${x}" y="46" fill="${hl ? C.x : C.y}" font-size="38" font-weight="${hl ? 700 : 500}" text-anchor="middle" font-family="Avenir Next">${4 * i} km</text>` +
+      `<text x="${x}" y="140" fill="${hl ? C.x : "#fff"}" font-size="38" font-weight="${hl ? 700 : 500}" text-anchor="middle" font-family="Avenir Next">${i} h</text>`;
+  }
+  svg += `</svg>`;
+  s.add(svg, CX + 20, 845).write(t4 + 3.4, 3.0);
+  s.text(`Jobs too:  pages = (pages per minute) × minutes`, CX, 975, 40, { color: C.dim }).fadeIn(s.c(5));
+});
+
+scene("S5Convert", s => {
+  s.text("Convert with fractions that equal 1", CX, 165, 66, { weight: 700 }).fadeIn(s.c(0));
+  const one = feq(s, fr(`5,280 ${U("ft")}`, `1 ${U("mi")}`), "1", CX, 360, 76);
+  one.fadeIn(s.c(1)); one.fadeOut(s.c(2), 0.4);
+  const ask = s.text(`60 miles per hour  →  <span style="color:${C.x}">? feet per second</span>`, CX, 340, 60, { weight: 500 });
+  ask.fadeIn(s.c(2) + 0.4);
+  const Y = 560, F = 76;
+  const f1 = s.text(fr(`60 <span class="mi1">${U("mi")}</span>`, `1 <span class="hr1">${U("hr")}</span>`), 520, Y, F);
+  const x1 = s.text("×", 745, Y, F);
+  const f2 = s.text(fr(`5,280 ${U("ft")}`, `1 <span class="mi2">${U("mi")}</span>`), 1000, Y, F);
+  const x2 = s.text("×", 1255, Y, F);
+  const f3 = s.text(fr(`1 <span class="hr2">${U("hr")}</span>`, `3,600 ${U("s")}`), 1500, Y, F);
+  f1.fadeIn(s.c(2) + 1.2);
+  const t3 = s.c(3);
+  x1.fadeIn(t3 + 1.0, 0.4, 0); f2.fadeIn(t3 + 1.4);
+  strike(s, f1.rect(".mi1"), t3 + 4.4); strike(s, f2.rect(".mi2"), t3 + 4.7);
+  const t4 = s.c(4);
+  x2.fadeIn(t4 + 1.1, 0.4, 0); f3.fadeIn(t4 + 1.5);
+  strike(s, f1.rect(".hr1"), t4 + 3.2); strike(s, f3.rect(".hr2"), t4 + 3.5);
+  const t5 = s.c(5);
+  s.text(`= 60 × 5,280 ÷ 3,600 = <b style="color:${C.x}">88</b> <span style="color:${C.y}">feet per second</span>`, CX, 765, 60).fadeIn(t5);
+  s.add(`<div class="card" style="padding:18px 44px;font-size:38px;color:#fff">1 mi = 5,280 ft  ·  1 ft = 12 in  ·  1 yd = 3 ft  ·  1 km = 1,000 m  ·  1 hr = 3,600 s</div>`, CX, 905).fadeIn(s.c(6));
+});
+
+function questionCard(s, x, y, o = {}) {
+  const G = (t) => `<span style="color:${C.x}">${t}</span>`;
+  const ch = (L, t, c) => `<span style="margin:0 26px;${c ? `color:${c};font-weight:700` : ""}">${L}. ${t}</span>`;
+  const html = `<div class="card" style="padding:30px 60px 34px">` +
+    `<div style="font-size:34px;color:${C.dim};margin-bottom:6px">Practice Test 2 · Question 25</div>` +
+    `<div style="display:flex;justify-content:center">${segSVG(900)}</div>` +
+    `<div style="font-size:44px;margin:8px 0 14px">Points X and Y are on segment WZ.</div>` +
+    `<div style="font-size:50px;font-weight:600;margin-bottom:14px">${G("XZ = 18 cm")}<span style="display:inline-block;width:60px"></span>${G("WX : XZ = 3 : 2")}<span style="display:inline-block;width:60px"></span>${G("XY : YZ = 2 : 1")}</div>` +
+    `<div style="font-size:46px;margin-bottom:18px">What is the length of WY?</div>` +
+    `<div style="font-size:42px;color:${C.dim}">${ch("A", "12 cm")}${ch("B", "30 cm")}${ch("C", "36 cm", o.mark ? C.neg : "")}${ch("D", "39 cm")}</div></div>`;
+  return s.add(html, x, y);
+}
+
+scene("S6Question", s => {
+  s.text("Your real question", CX, 165, 56, { color: C.x, weight: 700 }).fadeIn(s.c(0));
+  questionCard(s, CX, 500, { mark: true }).fadeIn(s.c(0) + 0.3);
+  s.text(`<span style="color:${C.dim}">Your answer:</span> <b style="color:${C.neg}">C. 36 cm ✗</b> <span style="display:inline-block;width:90px"></span><span style="color:${C.dim}">Time:</span> <b style="color:${C.neg}">4 min 7 sec</b>`, CX, 850, 54).fadeIn(s.c(1));
+  s.text(`<span style="color:${C.dim}">Goal:</span> <b style="color:${C.op}">about 1 minute</b>`, CX, 950, 56).pop(s.c(2));
+});
+
+scene("S7Solve", s => {
+  const W = 210, k = 1500 / 45, P = v => W + v * k, SY = 520;
+  const gs = [["XZ = 18 cm", 450], ["WX : XZ = 3 : 2", 960], ["XY : YZ = 2 : 1", 1470]].map(([t, x]) => s.text(t, x, 190, 46, { color: C.x, weight: 600 }));
+  gs.forEach(g => g.fadeIn(s.c(0)));
+  // the segment
+  s.add(bar(1500, 6, "#fff"), CX, SY).fadeIn(s.c(0) + 0.4, 0.5, 0);
+  [["W", 0], ["X", 27], ["Y", 39], ["Z", 45]].forEach(([n, v], i) => {
+    s.add(`<div style="width:18px;height:18px;border-radius:9px;background:#fff"></div>`, P(v), SY).fadeIn(s.c(0) + 0.6 + i * 0.15, 0.4, 0);
+    s.text(n, P(v), 572, 50, { weight: 600 }).fadeIn(s.c(0) + 0.6 + i * 0.15, 0.4, 0);
+  });
+
+  // Ratio 1: WX : XZ = 3 : 2, five shares of 9.
+  const t1 = s.c(1);
+  const ring1 = s.ring(gs[1].rect(), C.x, 14).pop(t1);
+  const T1 = [...Array(5)].map((_, i) => s.add(box(290, 86, i < 3 ? C.x : C.y), P(9 * i + 4.5), 370));
+  T1.forEach((b, i) => b.fadeIn(t1 + 0.6 + i * 0.2, 0.4, -24));
+  s.text("XZ = 18", P(36), 455, 46, { color: C.y, weight: 700 }).fadeIn(t1 + 4.5);
+  s.text(`XZ is 2 shares = 18,  so 1 share = <b>9</b>`, CX, 272, 46, { color: "#fff", weight: 600 }).fadeIn(t1 + 7.0);
+  T1.forEach((b, i) => s.text("9", P(9 * i + 4.5), 370, 52, { color: i < 3 ? C.x : C.y, weight: 700 }).pop(t1 + 8.6 + i * 0.1));
+
+  const t2 = s.c(2);
+  s.add(bar(P(27) - W, 10, C.x), (W + P(27)) / 2, SY).fadeIn(t2, 0.5, 0);
+  s.text("WX = 3 × 9 = 27", P(13.5), 455, 46, { color: C.x, weight: 700 }).pop(t2 + 3.2);
+
+  // Ratio 2: XY : YZ = 2 : 1, three new shares of 6.
+  const t3 = s.c(3);
+  ring1.fadeOut(t3);
+  s.ring(gs[2].rect(), C.op, 14).pop(t3);
+  const T2 = [...Array(3)].map((_, i) => s.add(box(190, 80, i < 2 ? C.op : C.dim), P(27 + 6 * i + 3), 690));
+  T2.forEach((b, i) => b.fadeIn(t3 + 4.2 + i * 0.2, 0.4, 24));
+  s.text("18 ÷ 3 = 6", P(27) - 40, 690, 46, { color: C.op, weight: 600, ax: 1 }).fadeIn(t3 + 5.5);
+  T2.forEach((b, i) => s.text("6", P(27 + 6 * i + 3), 690, 50, { color: i < 2 ? C.op : C.dim, weight: 700 }).pop(t3 + 7.6 + i * 0.1));
+
+  const t4 = s.c(4);
+  s.add(bar(P(39) - P(27), 10, C.op), (P(27) + P(39)) / 2, SY).fadeIn(t4, 0.5, 0);
+  s.text("XY = 2 × 6 = 12", P(33), 778, 44, { color: C.op, weight: 700 }).pop(t4 + 2.0);
+
+  const t5 = s.c(5);
+  brace(s, W + 4, P(39) - 4, 850, C.x).fadeIn(t5, 0.5, 0);
+  const ans = s.text(`WY = 27 + 12 = <b>39 cm</b>`, (W + P(39)) / 2, 925, 60, { color: C.x, weight: 600 });
+  ans.fadeIn(t5 + 1.0);
+  s.ring(ans.rect(), C.x, 16).pop(t5 + 3.3);
+  s.text(`choice D`, (W + P(39)) / 2 + 420, 925, 50, { color: C.op, weight: 700, ax: 0 }).fadeIn(t5 + 5.0);
+});
+
+scene("S8Check", s => {
+  s.text("Check: rebuild the whole", CX, 165, 66, { weight: 700 }).fadeIn(s.c(0));
+  const W = 360, k = 1200 / 45, P = v => W + v * k, SY = 320;
+  s.add(bar(1200, 6, "#fff"), CX, SY).fadeIn(s.c(0) + 0.3, 0.5, 0);
+  s.add(bar(P(27) - W, 10, C.x), (W + P(27)) / 2, SY).fadeIn(s.c(0) + 0.5, 0.5, 0);
+  s.add(bar(P(39) - P(27), 10, C.op), (P(27) + P(39)) / 2, SY).fadeIn(s.c(0) + 0.5, 0.5, 0);
+  [["W", 0], ["X", 27], ["Y", 39], ["Z", 45]].forEach(([n, v]) => {
+    s.add(`<div style="width:16px;height:16px;border-radius:8px;background:#fff"></div>`, P(v), SY).fadeIn(s.c(0) + 0.5, 0.5, 0);
+    s.text(n, P(v), 368, 44, { weight: 600 }).fadeIn(s.c(0) + 0.5, 0.5, 0);
+  });
+  [["27", 13.5, C.x], ["12", 33, C.op], ["6", 42, C.dim]].forEach(([t, v, c]) => s.text(t, P(v), 272, 46, { color: c, weight: 700 }).fadeIn(s.c(0) + 0.8));
+  const t1 = s.c(1);
+  brace(s, W + 4, P(45) - 4, 418).fadeIn(t1 + 2.9, 0.5, 0);
+  s.text(`WZ = 5 shares × 9 = 45 <span style="color:${C.op}">✓</span>`, CX, 495, 54, { weight: 600 }).fadeIn(t1 + 3.0);
+  s.text(`WY + YZ = 39 + 6 = 45 <span style="color:${C.op}">✓</span>`, CX, 590, 54, { weight: 600 }).fadeIn(t1 + 6.8);
+  const t2 = s.c(2);
+  s.text(`36 = 27 + 9 ✗   (the first share size, 9, reused for XY)`, CX, 710, 48, { color: C.neg, weight: 600 }).fadeIn(t2);
+  s.text("Each ratio gets its own share size.", CX, 800, 56, { color: C.x, weight: 700 }).pop(t2 + 6.1);
+  s.text(`Stuck at 2½ minutes? Best guess, then move on.`, CX, 920, 48, { color: C.neg, weight: 600 }).fadeIn(s.c(3) + 3.3);
+});
+
+scene("S9Recap", s => {
+  s.text("Your toolkit", CX, 170, 76, { weight: 700 }).fadeIn(s.c(0));
+  const lines = [
+    ["Ratio:", "add the parts, find one share, then multiply."],
+    ["Proportion:", "line up the units and cross-multiply."],
+    ["Rate:", "per means divide. 15 min = ¼ hour, not 0.15."],
+    ["Convert:", "multiply by fractions whose units cancel."],
+  ];
+  lines.forEach(([a, b], i) => s.badge(i + 1, `${a} <span style="color:#fff;font-weight:500">${esc(b)}</span>`, 300, 310 + i * 125, { size: 48 }).fadeIn(s.c(i + 1), 0.6, 0).set(s.c(i + 1), { sx: -30 }).tw(s.c(i + 1), 0.6, { sx: 0 }));
+  s.text("Next: Workbook Unit 4 practice.  You've got this!", CX, 900, 54, { color: C.op, weight: 700 }).pop(s.c(5));
+});
+
+}
+
+</script>
+<script src="../boot.js"></script>
+</body></html>

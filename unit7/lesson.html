@@ -1,0 +1,560 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><title>Unit 7 · Area, Circles &amp; Volume</title>
+<link rel="stylesheet" href="../lesson.css">
+<style>
+  /* Unit 7 only. Avenir Next draws π like a Cyrillic "п"; borrow a clearer π from Georgia. */
+  @font-face { font-family: "PiFix"; src: local("Georgia"); unicode-range: U+03C0; font-weight: 100 500; }
+  @font-face { font-family: "PiFix"; src: local("Georgia Bold"), local("Georgia-Bold"); unicode-range: U+03C0; font-weight: 501 900; }
+  #stage { font-family: "PiFix", "Avenir Next", Avenir, "Helvetica Neue", sans-serif; }
+  .choice, .key, .num, .btn { font-family: "PiFix", "Avenir Next", sans-serif !important; }
+  /* Unit 7 only: most questions have figures, so a worked solution keeps its figure and sits beside it
+     (the shared player hides the whole answer area). */
+  #quiz:not([style*="none"]):has(.withfig):has(.steps) { display: grid !important; grid-template-columns: auto 1fr; column-gap: 70px;
+    row-gap: 22px; align-content: start; justify-items: center; }
+  #quiz:has(.withfig):has(.steps) > :not(.answer):not(.feedback) { grid-column: 1 / -1; }
+  #quiz:has(.withfig):has(.steps) > .answer { grid-column: 1; display: flex !important; }
+  #quiz:has(.withfig):has(.steps) .choices, #quiz:has(.withfig):has(.steps) .fillcol { display: none; }
+  #quiz:has(.withfig):has(.steps) > .feedback { grid-column: 2; justify-self: start; align-items: flex-start; }
+  #quiz:has(.withfig):has(.steps) .msg { text-align: left; max-width: 950px; }
+  #quiz:has(.withfig):has(.steps) .stepline { font-size: 42px; }
+  #quiz:has(.withfig):has(.steps) .stepline .note { display: block; margin: 0 0 4px 0; font-size: 28px; }
+  /* score screen: 19 questions, so two columns */
+  #summary { gap: 22px; padding-top: 110px; }
+  #summary .sumtitle { font-size: 66px; }
+  #summary .sumtable, #summary .sumtable tbody { display: block; }
+  #summary .sumtable tbody { column-count: 2; column-gap: 60px; }
+  #summary .sumtable tr { display: flex; align-items: center; break-inside: avoid; border-bottom: 1px solid #2a3f63; }
+  #summary .sumtable tr:first-child { display: none; }
+  #summary .sumtable td { border: 0; padding: 7px 10px; font-size: 25px; }
+  #summary .sumtable td.qq { width: 480px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #summary .sumtable td:nth-child(2) { width: 120px; }
+  #summary .sumtable td.ans { width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style></head>
+<body data-unit="unit7"><div id="stage"></div>
+<script src="lesson-data.js"></script>
+<script src="../engine.js"></script>
+<script>
+
+// ---------- drawing helpers (SVG in stage coordinates) ----------
+const FONT = "PiFix, Avenir Next, Avenir, sans-serif";
+const FILL = "rgba(142,202,230,0.25)", YFILL = "rgba(255,209,102,0.30)", TFILL = "rgba(6,214,160,0.25)", PFILL = "rgba(239,71,111,0.28)";
+const pts = p => p.map(q => q[0].toFixed(1) + "," + q[1].toFixed(1)).join(" ");
+const poly = (p, fill = FILL, stroke = "#fff", sw = 5, dash = "") =>
+  `<polygon points="${pts(p)}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" stroke-linejoin="round"${dash ? ` stroke-dasharray="${dash}"` : ""}/>`;
+const ln = (x1, y1, x2, y2, c = "#fff", sw = 5, dash = "") =>
+  `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"${dash ? ` stroke-dasharray="${dash}"` : ""}/>`;
+const circ = (cx, cy, r, fill = "none", stroke = "#fff", sw = 5, dash = "") =>
+  `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"${dash ? ` stroke-dasharray="${dash}"` : ""}/>`;
+const corner = (x, y, dx, dy, k = 22, c = "#fff") => `<path d="M${x + dx * k},${y} V${y + dy * k} H${x}" fill="none" stroke="${c}" stroke-width="4"/>`;
+function bbox(p, pad = 12) {
+  const xs = p.map(q => q[0]), ys = p.map(q => q[1]);
+  return [Math.min(...xs) - pad, Math.min(...ys) - pad, Math.max(...xs) + pad, Math.max(...ys) + pad];
+}
+// An SVG item drawn in stage coordinates; box = [x0, y0, x1, y1]. The item's center is the box center
+// (so rotate() turns it around that point).
+function shp(s, inner, box, o = {}) {
+  const [x0, y0, x1, y1] = box, w = x1 - x0, h = y1 - y0;
+  return s.add(`<svg width="${w}" height="${h}" viewBox="${x0} ${y0} ${w} ${h}" style="display:block;overflow:visible" font-family="${FONT}">${inner}</svg>`,
+    x0 + w / 2, y0 + h / 2, o);
+}
+const shape = (s, p, fill, stroke, sw, dash, o) => shp(s, poly(p, fill, stroke, sw, dash), bbox(p), o);
+const seg = (s, x1, y1, x2, y2, c, sw = 6, dash = "") => shp(s, ln(x1, y1, x2, y2, c, sw, dash), bbox([[x1, y1], [x2, y2]], sw + 4));
+// Isometric projection: x to the lower right, y to the lower left, z up.
+const ISO = (ox, oy, k) => (x, y, z) => [ox + (x - y) * k * 0.866, oy + (x + y) * k * 0.5 - z * k];
+function slab(P, L, D, z0, z1, fills = ["#4c7190", "#3a5979", "#294263"], grid = true) {
+  const top = [P(0, 0, z1), P(L, 0, z1), P(L, D, z1), P(0, D, z1)];
+  const left = [P(0, D, z0), P(L, D, z0), P(L, D, z1), P(0, D, z1)];
+  const right = [P(L, 0, z0), P(L, D, z0), P(L, D, z1), P(L, 0, z1)];
+  let g = "";
+  const gl = (a, b) => { g += ln(a[0].toFixed(1), a[1].toFixed(1), b[0].toFixed(1), b[1].toFixed(1), "rgba(255,255,255,0.75)", 2.5); };
+  if (grid) {
+    for (let i = 1; i < L; i++) { gl(P(i, 0, z1), P(i, D, z1)); gl(P(i, D, z0), P(i, D, z1)); }
+    for (let j = 1; j < D; j++) { gl(P(0, j, z1), P(L, j, z1)); gl(P(L, j, z0), P(L, j, z1)); }
+    for (let k = z0 + 1; k < z1; k++) { gl(P(0, D, k), P(L, D, k)); gl(P(L, 0, k), P(L, D, k)); }
+  }
+  const svg = poly(top, fills[0], "#fff", 4) + poly(left, fills[1], "#fff", 4) + poly(right, fills[2], "#fff", 4) + g;
+  return { svg, box: bbox([...top, ...left, ...right], 8) };
+}
+const T = (x, y, str, size = 44, color = "#fff", weight = 600, extra = "") =>
+  `<text x="${x}" y="${y}" font-size="${size}" fill="${color}" text-anchor="middle" dominant-baseline="central" font-weight="${weight}" ${extra}>${str}</text>`;
+
+// Practice Test 2 #19: rectangle MNPQ with a circle whose diameter is NP. Local coords; returns svg + key points.
+function figM19(r, fs = 34, mg = 48) {
+  const W = 2 * mg + 2 * r, Hh = 2 * mg + 2 * r;
+  const M = [mg, mg], Q = [mg + 2 * r, mg], N = [mg, mg + r], Pp = [mg + 2 * r, mg + r], Y = [mg + r, mg + r], Z = [mg + r, mg];
+  const it = (x, y, t) => T(x, y, t, fs, "#fff", 600, 'font-style="italic"');
+  const svg = `<svg width="${W}" height="${Hh}" viewBox="0 0 ${W} ${Hh}" style="display:block" font-family="${FONT}">` +
+    circ(Y[0], Y[1], r, "none", "#fff", 4) + poly([M, N, Pp, Q], "rgba(142,202,230,0.12)", "#fff", 4) +
+    ln(Y[0], Y[1], Z[0], Z[1], "#fff", 3, "9 8") + `<circle cx="${Y[0]}" cy="${Y[1]}" r="6" fill="#fff"/>` +
+    it(M[0] - fs * 0.6, M[1] - fs * 0.5, "M") + it(Q[0] + fs * 0.6, Q[1] - fs * 0.5, "Q") +
+    it(N[0] - fs * 0.65, N[1] + fs * 0.2, "N") + it(Pp[0] + fs * 0.65, Pp[1] + fs * 0.2, "P") +
+    it(Z[0] + fs * 0.55, Z[1] - fs * 0.5, "Z") + it(Y[0] + fs * 0.55, Y[1] + fs * 0.6, "Y") + `</svg>`;
+  return { svg, W, H: Hh, M, N, P: Pp, Q, Y, Z };
+}
+
+function build() {
+
+scene("S1Title", s => {
+  const icons = [
+    `<svg width="90" height="90"><rect x="8" y="8" width="74" height="74" fill="${FILL}" stroke="${C.y}" stroke-width="5"/></svg>`,
+    `<svg width="100" height="90"><polygon points="6,84 94,84 30,8" fill="${YFILL}" stroke="${C.x}" stroke-width="5" stroke-linejoin="round"/></svg>`,
+    `<svg width="90" height="90"><circle cx="45" cy="45" r="38" fill="${TFILL}" stroke="${C.op}" stroke-width="5"/></svg>`,
+    `<svg width="80" height="96"><path d="M6,18 V78 A34,12 0 0 0 74,78 V18" fill="${FILL}" stroke="${C.y}" stroke-width="5"/><ellipse cx="40" cy="18" rx="34" ry="12" fill="${FILL}" stroke="${C.y}" stroke-width="5"/></svg>`,
+  ].map((h, i) => s.add(h, CX + (i - 1.5) * 150, 210));
+  const unit = s.text("UNIT 7", CX, 340, 44, { color: C.op, weight: 700, style: { letterSpacing: "0.3em" } });
+  const title = s.text("Area, Circles &amp; Volume", CX, 450, 120, { weight: 700 });
+  const sub = s.text("SHSAT Math with Victoria", CX, 560, 48, { color: C.dim });
+  unit.fadeIn(s.c(0)); title.write(s.c(0) + 0.3, 1.3); sub.fadeIn(s.c(0) + 1.5);
+  icons.forEach((it, i) => it.pop(s.c(0) + 1.8 + i * 0.25));
+  const stat = s.text(`Practice tests: <b style="color:${C.neg}">7 of 10</b> area, circle &amp; volume questions missed`, CX, 740, 50, { color: C.dim });
+  const stat2 = s.text(`One of them took <b style="color:${C.neg}">almost 6 minutes</b>.`, CX, 830, 46, { color: C.dim });
+  stat.fadeIn(s.c(1)); stat2.fadeIn(s.c(1) + 3.5); stat.fadeOut(s.c(2)); stat2.fadeOut(s.c(2));
+  s.text("Know the formulas, and why they work.", CX, 780, 58, { color: C.x, weight: 600 }).fadeIn(s.c(2) + 0.3);
+});
+
+scene("S2PerimArea", s => {
+  const X0 = 250, Y0 = 330, U = 95, X1 = X0 + 6 * U, Y1 = Y0 + 4 * U;
+  s.text("Perimeter vs. area", CX, 175, 64, { weight: 700 }).fadeIn(s.c(0));
+  const sq = [];
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 6; c++)
+    sq.push(s.add(`<div style="width:${U - 8}px;height:${U - 8}px;border-radius:6px;background:rgba(142,202,230,0.45)"></div>`, X0 + c * U + U / 2, Y0 + r * U + U / 2));
+  const gridLines = shp(s, [1, 2, 3, 4, 5].map(c => ln(X0 + c * U, Y0, X0 + c * U, Y1, "rgba(255,255,255,0.35)", 2)).join("") +
+    [1, 2, 3].map(r => ln(X0, Y0 + r * U, X1, Y0 + r * U, "rgba(255,255,255,0.35)", 2)).join(""), [X0, Y0, X1, Y1]);
+  const rect = shape(s, [[X0, Y0], [X1, Y0], [X1, Y1], [X0, Y1]], "none", "#fff", 5);
+  const l6 = s.text("6", (X0 + X1) / 2, Y1 + 50, 52), l4 = s.text("4", X0 - 45, (Y0 + Y1) / 2, 52);
+  const t0 = s.c(0);
+  rect.fadeIn(t0 + 0.3); gridLines.fadeIn(t0 + 0.6); l6.fadeIn(t0 + 0.9); l4.fadeIn(t0 + 0.9);
+
+  // perimeter: the fence
+  const PX = 1000;
+  s.text(`<b style="color:${C.x}">Perimeter</b> <span style="color:${C.dim};font-size:40px">= distance around (a fence)</span>`, PX, 360, 54, { ax: 0 }).fadeIn(s.c(1));
+  const sides = [[X0, Y0, X1, Y0, "6", (X0 + X1) / 2, Y0 - 40], [X1, Y0, X1, Y1, "4", X1 + 40, (Y0 + Y1) / 2],
+    [X1, Y1, X0, Y1, "6", 0, 0], [X0, Y1, X0, Y0, "4", 0, 0]];
+  const t2 = s.c(2);
+  sides.forEach(([a, b, c, d, n, lx, ly], i) => {
+    seg(s, a, b, c, d, C.x, 10).fadeIn(t2 + i * 0.65, 0.4, 0);
+    if (lx) s.text(n, lx, ly, 52, { color: C.x }).fadeIn(t2 + i * 0.65, 0.4, 0);
+  });
+  [l6, l4].forEach((l, i) => l.tw(t2 + (2 + i) * 0.65, 0.3, { scale: 1.25 }).tw(t2 + (2 + i) * 0.65 + 0.3, 0.3, { scale: 1 }));
+  const pe = s.text(`6 + 4 + 6 + 4 = <b style="color:${C.x}">20 units</b>`, PX, 450, 56, { ax: 0 });
+  pe.write(t2 + 0.2, 2.4);
+
+  // area: the carpet
+  const t4 = s.c(4);
+  s.text(`<b style="color:${C.y}">Area</b> <span style="color:${C.dim};font-size:40px">= squares inside (carpet)</span>`, PX, 600, 54, { ax: 0 }).fadeIn(t4);
+  sq.forEach((q, i) => q.pop(t4 + 0.5 + i * 0.07, 0.35));
+  const t5 = s.c(5);
+  const row = s.ring({ cx: (X0 + X1) / 2, cy: Y0 + U / 2, w: X1 - X0, h: U }, C.x, 6); row.pop(t5); row.fadeOut(t5 + 1.6);
+  const col = s.ring({ cx: X0 + U / 2, cy: (Y0 + Y1) / 2, w: U, h: Y1 - Y0 }, C.x, 6); col.pop(t5 + 1.6); col.fadeOut(t5 + 3.0);
+  const ar = s.text(`6 per row × 4 rows`, PX, 690, 56, { ax: 0 }); ar.fadeIn(t5);
+  s.text(`= <b style="color:${C.y}">24 square units</b>`, PX + 30, 770, 56, { ax: 0 }).fadeIn(s.c(6));
+  const f = s.text(`Area = length × width &nbsp;<span style="color:${C.dim};font-size:44px">(units²)</span>`, CX, 905, 64, { weight: 700 });
+  f.pop(s.c(7));
+});
+
+scene("S3Formulas", s => {
+  s.text("Where the formulas come from", CX, 175, 64, { weight: 700 }).fadeIn(s.c(0));
+  const F = 1.15, TOP = 420;
+  const at = (px, cxl) => (p) => [px + (p[0] - cxl) * F, TOP + p[1] * F];
+  const hl = (pt, p1, p2) => seg(s, ...pt(p1), ...pt(p2), C.x, 5, "12 10");
+  const lab = (pt, p, str, color = "#fff", size = 46) => { const q = pt(p); return s.text(str, q[0], q[1], size, { color, weight: 600 }); };
+  const name = (x, str) => s.text(str, x, 335, 48, { color: C.dim, weight: 600 });
+  const formula = (x, html) => s.text(html, x, 770, 56, { weight: 700 });
+  const note = (x, str) => s.text(str, x, 840, 36, { color: C.dim });
+
+  // 1. parallelogram -> rectangle
+  const p1 = at(330, 190);
+  const pA = shape(s, [[0, 180], [80, 180], [80, 0]].map(p1), YFILL, "#fff", 5);
+  const pB = shape(s, [[80, 0], [380, 0], [300, 180], [80, 180]].map(p1), FILL, "#fff", 5);
+  const h1 = hl(p1, [80, 0], [80, 180]);
+  const b1 = lab(p1, [190, 222], "b"), hh1 = lab(p1, [105, 90], "h", C.x);
+  const t1 = s.c(1);
+  pA.fadeIn(t1); pB.fadeIn(t1); b1.fadeIn(t1 + 0.4); h1.fadeIn(t1 + 0.8); hh1.fadeIn(t1 + 0.8);
+  const scissors = lab(p1, [80, -32], "✂", C.neg, 44); scissors.pop(t1 + 1.3); scissors.fadeOut(t1 + 2.6);
+  pA.shift(t1 + 2.0, 1.4, 300 * F, 0); b1.shift(t1 + 2.0, 1.4, 40 * F, 0);
+  formula(330, "A = b × h").pop(s.c(2));
+  note(330, "a rectangle in disguise").fadeIn(s.c(2) + 0.5);
+
+  // 2. triangle + rotated copy -> parallelogram
+  const p2 = at(960, 190), tri = [[0, 180], [300, 180], [80, 0]];
+  const piv2 = p2([190, 90]);
+  const t3 = s.c(3);
+  shape(s, tri.map(p2), FILL, "#fff", 5).fadeIn(t3);
+  const h2 = hl(p2, [80, 0], [80, 180]); h2.fadeIn(t3 + 0.4);
+  lab(p2, [150, 222], "b").fadeIn(t3 + 0.4); lab(p2, [105, 110], "h", C.x).fadeIn(t3 + 0.4);
+  const R2 = 260;
+  const copy2 = shp(s, poly(tri.map(p2), YFILL, "#fff", 4, "14 10"), [piv2[0] - R2, piv2[1] - R2, piv2[0] + R2, piv2[1] + R2]);
+  copy2.show(t3 + 1.3); copy2.rotate(t3 + 1.6, 1.6, 180);
+  formula(960, "A = ½ × b × h").pop(s.c(4));
+  note(960, "half a parallelogram").fadeIn(s.c(4) + 0.5);
+
+  // 3. trapezoid + rotated copy -> parallelogram with base b1 + b2
+  const p3 = at(1560, 230), trap = [[0, 180], [260, 180], [200, 0], [60, 0]];
+  const piv3 = p3([230, 90]);
+  const t5 = s.c(5);
+  shape(s, trap.map(p3), FILL, "#fff", 5).fadeIn(t5);
+  const h3 = hl(p3, [60, 0], [60, 180]); h3.fadeIn(t5 + 0.4);
+  lab(p3, [130, 0 - 34], "b₁").fadeIn(t5 + 0.4); lab(p3, [130, 222], "b₂").fadeIn(t5 + 0.4); lab(p3, [85, 110], "h", C.x).fadeIn(t5 + 0.4);
+  const R3 = 300;
+  const copy3 = shp(s, poly(trap.map(p3), YFILL, "#fff", 4, "14 10"), [piv3[0] - R3, piv3[1] - R3, piv3[0] + R3, piv3[1] + R3]);
+  copy3.show(t5 + 1.3); copy3.rotate(t5 + 1.6, 1.6, 180);
+  lab(p3, [330, 222], "b₁", C.x).fadeIn(t5 + 3.3);
+  formula(1560, "A = ½(b₁ + b₂) × h").pop(s.c(6));
+  note(1560, "half a parallelogram").fadeIn(s.c(6) + 0.5);
+
+  name(330, "Parallelogram").fadeIn(t1); name(960, "Triangle").fadeIn(t3); name(1560, "Trapezoid").fadeIn(t5);
+  const t7 = s.c(7);
+  [h1, h2, h3].forEach(h => h.pulse(t7 + 0.4, 1.12));
+  s.text("The height is straight up and down, never the slanted side.", CX, 945, 48, { color: C.neg, weight: 600 }).fadeIn(t7);
+});
+
+scene("S4Composite", s => {
+  const U = 75, X0 = 260, Y0 = 330;
+  const X = a => X0 + a * U, Y = b => Y0 + b * U;   // b measured down from the top
+  s.text("Odd shapes = simple shapes", CX, 175, 64, { weight: 700 }).fadeIn(s.c(0));
+  const L = [[X(0), Y(0)], [X(4), Y(0)], [X(4), Y(3)], [X(8), Y(3)], [X(8), Y(6)], [X(0), Y(6)]];
+  const outline = shape(s, L, "rgba(142,202,230,0.10)", "#fff", 6);
+  const labs = [["8", X(4), Y(6) + 45], ["6", X(0) - 40, Y(3)], ["4", X(2), Y(0) - 40], ["3", X(4) + 35, Y(1.5)], ["4", X(6), Y(3) - 40], ["3", X(8) + 35, Y(4.5)]]
+    .map(([t, x, y]) => s.text(t, x, y, 50));
+  const t0 = s.c(0);
+  outline.fadeIn(t0 + 0.3); labs.forEach((l, i) => l.fadeIn(t0 + 0.8 + i * 0.15));
+
+  // way 1: split into two rectangles
+  const t1 = s.c(1);
+  const bot = shape(s, [[X(0), Y(3)], [X(8), Y(3)], [X(8), Y(6)], [X(0), Y(6)]], FILL, "none", 0);
+  const topL = shape(s, [[X(0), Y(0)], [X(4), Y(0)], [X(4), Y(3)], [X(0), Y(3)]], YFILL, "none", 0);
+  const cut = seg(s, X(0), Y(3), X(4), Y(3), C.x, 5, "14 10");
+  cut.fadeIn(t1); bot.fadeIn(t1 + 0.6); topL.fadeIn(t1 + 0.9);
+  const PX = 1010;
+  s.text("Add the pieces", PX, 330, 50, { ax: 0, color: C.op, weight: 700 }).fadeIn(t1);
+  const t2 = s.c(2);
+  const n24 = s.text("24", X(4), Y(4.5), 64, { weight: 700 }), n12 = s.text("12", X(2), Y(1.5), 64, { weight: 700 });
+  s.text(`8 × 3 = <span style="color:${C.y}">24</span>`, PX, 410, 54, { ax: 0 }).fadeIn(t2); n24.pop(t2);
+  s.text(`4 × 3 = <span style="color:${C.x}">12</span>`, PX, 480, 54, { ax: 0 }).fadeIn(t2 + 1.5); n12.pop(t2 + 1.5);
+  s.text(`24 + 12 = <b>36</b>`, PX, 555, 54, { ax: 0 }).fadeIn(s.c(3));
+
+  // way 2: complete the rectangle, subtract the corner
+  const t4 = s.c(4);
+  [bot, topL, cut, n24, n12].forEach(it => it.fadeOut(t4, 0.5));
+  const big = shape(s, [[X(0), Y(0)], [X(8), Y(0)], [X(8), Y(6)], [X(0), Y(6)]], FILL, "none", 0);
+  const miss = shape(s, [[X(4), Y(0)], [X(8), Y(0)], [X(8), Y(3)], [X(4), Y(3)]], "none", C.neg, 5, "14 10");
+  miss.fadeIn(t4 + 0.3); big.fadeIn(t4 + 0.6);
+  s.text("Or subtract what's missing", PX, 660, 50, { ax: 0, color: C.op, weight: 700 }).fadeIn(t4);
+  s.text(`8 × 6 = 48`, PX, 740, 54, { ax: 0 }).fadeIn(t4 + 1.0);
+  const t5 = s.c(5);
+  const missF = shape(s, [[X(4), Y(0)], [X(8), Y(0)], [X(8), Y(3)], [X(4), Y(3)]], PFILL, "none", 0);
+  missF.fadeIn(t5); s.text("− 12", X(6), Y(1.2), 56, { color: C.neg, weight: 700 }).pop(t5 + 0.3);
+  s.text(`4 × 3 = <span style="color:${C.neg}">12</span>`, PX, 810, 54, { ax: 0 }).fadeIn(t5);
+  s.text(`48 − 12 = <b>36</b>`, PX, 885, 54, { ax: 0 }).fadeIn(s.c(6));
+  s.text("Shaded region = whole shape − the unshaded part", CX, 960, 46, { color: C.x, weight: 600 }).fadeIn(s.c(7));
+});
+
+scene("S5Circles", s => {
+  const OX = 520, OY = 590, R = 255;
+  s.text("Circles", CX, 175, 64, { weight: 700 }).fadeIn(s.c(0));
+  const fill = shp(s, circ(OX, OY, R, FILL, "none", 0), [OX - R, OY - R, OX + R, OY + R]);
+  const ring = shp(s, circ(OX, OY, R, "none", "#fff", 5) + `<circle cx="${OX}" cy="${OY}" r="8" fill="#fff"/>`, [OX - R - 6, OY - R - 6, OX + R + 6, OY + R + 6]);
+  ring.fadeIn(s.c(0) + 0.3);
+  const PX = 960;
+  // radius
+  const a = -40 * Math.PI / 180, ex = OX + R * Math.cos(a), ey = OY + R * Math.sin(a);
+  const rad = seg(s, OX, OY, ex, ey, C.x, 7), rl = s.text("r", (OX + ex) / 2 - 18, (OY + ey) / 2 - 28, 56, { color: C.x, style: { fontStyle: "italic" } });
+  const t1 = s.c(1);
+  rad.fadeIn(t1, 0.5, 0); rl.fadeIn(t1 + 0.3);
+  s.text(`<b style="color:${C.x}">radius r</b>: center to edge`, PX, 330, 52, { ax: 0 }).fadeIn(t1);
+  // diameter
+  const t2 = s.c(2);
+  const dia = seg(s, OX - R, OY, OX + R, OY, C.y, 7), dl = s.text("d", OX - R / 2, OY + 42, 56, { color: C.y, style: { fontStyle: "italic" } });
+  dia.fadeIn(t2, 0.5, 0); dl.fadeIn(t2 + 0.3);
+  s.text(`<b style="color:${C.y}">diameter d = 2r</b>: all the way across`, PX, 410, 52, { ax: 0 }).fadeIn(t2);
+  // circumference
+  const t3 = s.c(3);
+  const around = shp(s, circ(OX, OY, R, "none", C.op, 10), [OX - R - 8, OY - R - 8, OX + R + 8, OY + R + 8]);
+  around.pop(t3);
+  s.text(`<b style="color:${C.op}">circumference C = πd = 2πr</b>`, PX, 510, 52, { ax: 0 }).fadeIn(t3);
+  s.text(`π ≈ 3.14, so a bit more than 3 diameters around`, PX, 570, 36, { ax: 0, color: C.dim }).fadeIn(t3 + 0.8);
+  // area
+  const t4 = s.c(4);
+  around.fadeOut(t4, 0.5); rad.fadeOut(t4, 0.5); rl.fadeOut(t4, 0.5);
+  fill.fadeIn(t4);
+  const rsq = shp(s, poly([[OX, OY], [OX + R, OY], [OX + R, OY - R], [OX, OY - R]], YFILL, C.x, 4, "12 9"), [OX - 4, OY - R - 4, OX + R + 4, OY + 4]);
+  rsq.fadeIn(t4 + 0.5); s.text("r²", OX + R / 2, OY - R / 2, 60, { color: C.x, weight: 700 }).pop(t4 + 0.9);
+  s.text(`<b style="color:${C.y}">area A = πr²</b>`, PX, 670, 52, { ax: 0 }).fadeIn(t4);
+  s.text(`a bit more than 3 of the r² squares`, PX, 730, 36, { ax: 0, color: C.dim }).fadeIn(t4 + 0.8);
+  // half and quarter
+  const t5 = s.c(5), r = 62;
+  const semi = shp(s, `<path d="M${PX},860 a${r},${r} 0 0 1 ${2 * r},0 Z" fill="${FILL}" stroke="#fff" stroke-width="4"/>`, [PX - 4, 860 - r - 4, PX + 2 * r + 4, 864]);
+  const qx = PX + 470;
+  const quart = shp(s, `<path d="M${qx},860 h${r} a${r},${r} 0 0 0 ${-r},${-r} Z" fill="${FILL}" stroke="#fff" stroke-width="4"/>`, [qx - 4, 860 - r - 4, qx + r + 4, 864]);
+  semi.fadeIn(t5); s.text("½ πr²", PX + 2 * r + 30, 830, 50, { ax: 0, weight: 600 }).fadeIn(t5);
+  quart.fadeIn(t5 + 0.9); s.text("¼ πr²", qx + r + 30, 830, 50, { ax: 0, weight: 600 }).fadeIn(t5 + 0.9);
+  s.text(`Leave π in the answer (like 36π).  Write  <b style="color:${C.x}">r = ___</b>  first!`, CX, 960, 48, { weight: 600 }).fadeIn(s.c(6));
+});
+
+scene("S6Pythag", s => {
+  const title1 = s.text("Right triangles", CX, 175, 64, { weight: 700 });
+  title1.fadeIn(s.c(0));
+  const k = 62, A0 = [380, 670], V = [380, 670 - 3 * k], Hh = [380 + 4 * k, 670];
+  const n = [3 * k, -4 * k], Ca = [Hh[0] + n[0], Hh[1] + n[1]], Cb = [V[0] + n[0], V[1] + n[1]];
+  const tri = shape(s, [A0, V, Hh], "rgba(255,255,255,0.08)", "#fff", 6);
+  const mark = shp(s, corner(A0[0], A0[1], 1, -1, 24), [A0[0] - 4, A0[1] - 30, A0[0] + 30, A0[1] + 4]);
+  const la = s.text("3", A0[0] - 34, A0[1] - 1.5 * k, 48), lb = s.text("4", A0[0] + 2 * k, A0[1] + 36, 48);
+  const lc = s.text("c", (V[0] + Hh[0]) / 2 + 30, (V[1] + Hh[1]) / 2 - 36, 54, { color: C.x, style: { fontStyle: "italic" } });
+  const part1 = [tri, mark, la, lb, lc];
+  tri.fadeIn(s.c(0) + 0.3); mark.fadeIn(s.c(0) + 0.6); la.fadeIn(s.c(0) + 0.6); lb.fadeIn(s.c(0) + 0.6);
+  // squares on the sides, with unit grids
+  const sqr = (O, e1, e2, cnt, fill, label) => {
+    let g = poly([O, [O[0] + e1[0], O[1] + e1[1]], [O[0] + e1[0] + e2[0], O[1] + e1[1] + e2[1]], [O[0] + e2[0], O[1] + e2[1]]], fill, "#fff", 4);
+    for (let i = 1; i < cnt; i++) {
+      const f = i / cnt;
+      g += ln(O[0] + e1[0] * f, O[1] + e1[1] * f, O[0] + e1[0] * f + e2[0], O[1] + e1[1] * f + e2[1], "rgba(255,255,255,0.45)", 2);
+      g += ln(O[0] + e2[0] * f, O[1] + e2[1] * f, O[0] + e2[0] * f + e1[0], O[1] + e2[1] * f + e1[1], "rgba(255,255,255,0.45)", 2);
+    }
+    const c = [O[0] + (e1[0] + e2[0]) / 2, O[1] + (e1[1] + e2[1]) / 2];
+    g += T(c[0], c[1], label, 54, "#fff", 700);
+    const all = [O, [O[0] + e1[0], O[1] + e1[1]], [O[0] + e1[0] + e2[0], O[1] + e1[1] + e2[1]], [O[0] + e2[0], O[1] + e2[1]]];
+    return shp(s, g, bbox(all, 6));
+  };
+  const sa = sqr(V, [0, 3 * k], [-3 * k, 0], 3, FILL, "9");
+  const sb = sqr(A0, [4 * k, 0], [0, 4 * k], 4, TFILL, "16");
+  const sc = sqr(V, [Hh[0] - V[0], Hh[1] - V[1]], n, 5, YFILL, "25");
+  part1.push(sa, sb, sc);
+  const PX = 1230;
+  const e1 = s.eq("a² + b² = c²", PX, 330, 76); e1.fadeIn(s.c(1)); lc.fadeIn(s.c(1));
+  const nt = s.text("c = the longest side, across from the right angle", 900, 410, 36, { color: C.dim, ax: 0 }); nt.fadeIn(s.c(1) + 0.8);
+  const t2 = s.c(2);
+  [la, lb, lc].forEach(l => l.fadeOut(t2, 0.4));
+  sa.fadeIn(t2); sb.fadeIn(t2 + 0.8); sc.fadeIn(t2 + 2.0);
+  const e2 = s.eq("9 + 16 = 25", PX, 520, 76); e2.fadeIn(t2 + 1.0);
+  const t3 = s.c(3);
+  const e3 = s.eq("c = √25 = 5", PX, 630, 76); e3.fadeIn(t3);
+  const R3 = e3.R(), L3 = e3.L();
+  const l5 = s.ring({ cx: (L3.l + R3.r) / 2, cy: L3.cy, w: R3.r - L3.l, h: L3.h }, C.x, 16); l5.pop(t3 + 1.2);
+  const tri3 = s.text(`Common: <b>3-4-5</b>, &nbsp;<b>6-8-10</b>, &nbsp;<b>5-12-13</b>`, 900, 760, 40, { color: C.dim, ax: 0 }); tri3.fadeIn(t3 + 1.5);
+  // part 2: coordinate plane
+  const t4 = s.c(4);
+  [...part1, l5, e1, e2, e3, nt, tri3, title1].forEach(it => it.fadeOut(t4, 0.5));
+  s.text("Lengths on a coordinate plane", CX, 175, 64, { weight: 700 }).fadeIn(t4 + 0.4);
+  const G = 78, gx = 200, gy = 820;  // origin
+  const gX = a => gx + a * G, gY = b => gy - b * G;
+  let g = "";
+  for (let i = 0; i <= 8; i++) g += ln(gX(i), gY(0), gX(i), gY(6), "#34496e", 2);
+  for (let j = 0; j <= 6; j++) g += ln(gX(0), gY(j), gX(8), gY(j), "#34496e", 2);
+  g += ln(gX(0), gY(0), gX(8.3), gY(0), C.dim, 4) + ln(gX(0), gY(0), gX(0), gY(6.3), C.dim, 4);
+  for (let i = 1; i <= 8; i++) g += T(gX(i), gY(0) + 30, i, 28, C.dim, 500);
+  for (let j = 1; j <= 6; j++) g += T(gX(0) - 26, gY(j), j, 28, C.dim, 500);
+  const grid = shp(s, g, [gx - 50, gY(6.3) - 10, gX(8.3) + 10, gy + 50]);
+  grid.fadeIn(t4 + 0.5);
+  const A = [gX(1), gY(1)], B = [gX(4), gY(5)], Cc = [gX(4), gY(1)];
+  const ab = seg(s, ...A, ...B, C.x, 7);
+  const dots = shp(s, `<circle cx="${A[0]}" cy="${A[1]}" r="11" fill="${C.x}"/><circle cx="${B[0]}" cy="${B[1]}" r="11" fill="${C.x}"/>`, bbox([A, B], 14));
+  ab.fadeIn(t4 + 1.0, 0.5, 0); dots.fadeIn(t4 + 1.0, 0.5, 0);
+  s.text("A(1, 1)", A[0] - 30, A[1] + 44, 36, { color: C.x }).fadeIn(t4 + 1.2);
+  s.text("B(4, 5)", B[0] - 10, B[1] - 40, 36, { color: C.x }).fadeIn(t4 + 1.2);
+  const t5 = s.c(5), RX = 1030;
+  seg(s, ...A, ...Cc, C.y, 7, "16 10").fadeIn(t5, 0.5, 0);
+  s.text("3", (A[0] + Cc[0]) / 2, A[1] + 40, 44, { color: C.y }).fadeIn(t5 + 0.3);
+  seg(s, ...Cc, ...B, C.op, 7, "16 10").fadeIn(t5 + 1.6, 0.5, 0);
+  s.text("4", Cc[0] + 34, (Cc[1] + B[1]) / 2, 44, { color: C.op }).fadeIn(t5 + 1.9);
+  s.text(`across: &nbsp;4 − 1 = <b style="color:${C.y}">3</b>`, RX, 400, 54, { ax: 0 }).fadeIn(t5);
+  s.text(`up: &nbsp;5 − 1 = <b style="color:${C.op}">4</b>`, RX, 490, 54, { ax: 0 }).fadeIn(t5 + 1.6);
+  const t6 = s.c(6);
+  s.text(`AB = √(3² + 4²) = √25 = <b style="color:${C.x}">5</b>`, RX, 620, 54, { ax: 0 }).fadeIn(t6 + 0.4);
+  s.text("5", (A[0] + B[0]) / 2 - 34, (A[1] + B[1]) / 2 - 20, 50, { color: C.x, weight: 700 }).pop(t6 + 1.2);
+  s.text("Straight across or up: subtract.", RX, 730, 40, { ax: 0, color: C.dim }).fadeIn(t6 + 2.0);
+  s.text("Slanted: draw the right triangle.", RX, 790, 40, { ax: 0, color: C.dim }).fadeIn(t6 + 2.0);
+});
+
+scene("S7Volume", s => {
+  const title1 = s.text("Volume: how many unit cubes fill it", CX, 175, 64, { weight: 700 });
+  title1.fadeIn(s.c(0));
+  const P = ISO(400, 630, 50);
+  const layers = [0, 1, 2, 3, 4].map(z => { const sl = slab(P, 4, 3, z, z + 1); return shp(s, sl.svg, sl.box); });
+  const t1 = s.c(1);
+  layers[0].fadeIn(t1, 0.6, -40);
+  const e4 = P(2, 3, 0), e3 = P(4, 1.5, 0);
+  s.text("4", e4[0] - 32, e4[1] + 30, 44, { color: C.x }).fadeIn(t1 + 0.6);
+  s.text("3", e3[0] + 30, e3[1] + 14, 44, { color: C.x }).fadeIn(t1 + 0.6);
+  s.text("4 × 3 = 12 cubes per layer", 400, 860, 44).fadeIn(t1 + 0.8);
+  const t2 = s.c(2);
+  layers.slice(1).forEach((l, i) => l.fadeIn(t2 + i * 0.45, 0.45, -70));
+  const hz = P(0, 3, 2.5);
+  s.text("5", hz[0] - 40, hz[1], 44, { color: C.x }).fadeIn(t2 + 1.8);
+  s.text("12 × 5 = <b>60 cubes</b>", 400, 930, 44).fadeIn(t2 + 2.0);
+  const t3 = s.c(3);
+  title1.fadeOut(t3, 0.4);
+  s.text(`Volume = <span style="color:${C.y}">base area</span> × <span style="color:${C.x}">height</span>`, CX, 175, 64, { weight: 700 }).fadeIn(t3 + 0.3);
+  layers[0].pulse(t3 + 0.8, 1.05);
+  // cylinder
+  const t4 = s.c(4), cx = 990, rx = 125, ry = 46, top = 410, bot = 700;
+  const cyl = shp(s, `<path d="M${cx - rx},${top} V${bot} A${rx},${ry} 0 0 0 ${cx + rx},${bot} V${top}" fill="${FILL}" stroke="#fff" stroke-width="5"/>` +
+    `<ellipse cx="${cx}" cy="${bot}" rx="${rx}" ry="${ry}" fill="${TFILL}" stroke="#fff" stroke-width="3" stroke-dasharray="10 8"/>` +
+    `<ellipse cx="${cx}" cy="${top}" rx="${rx}" ry="${ry}" fill="rgba(142,202,230,0.4)" stroke="#fff" stroke-width="5"/>` +
+    ln(cx, top, cx + rx, top, C.x, 5) + `<circle cx="${cx}" cy="${top}" r="6" fill="${C.x}"/>` +
+    ln(cx + rx + 30, top, cx + rx + 30, bot, C.x, 4, "10 9") +
+    T(cx + rx / 2, top + 22, "r", 40, C.x, 600, 'font-style="italic"') + T(cx + rx + 60, (top + bot) / 2, "h", 44, C.x, 600, 'font-style="italic"'),
+    [cx - rx - 6, top - 70, cx + rx + 80, bot + ry + 6]);
+  cyl.fadeIn(t4);
+  s.text(`V = <span style="color:${C.y}">πr²</span> × <span style="color:${C.x}">h</span>`, cx, 860, 56, { weight: 700 }).fadeIn(t4 + 1.0);
+  // pyramid inside its prism
+  const t5 = s.c(5), Q = ISO(1560, 600, 58);
+  let pr = "";
+  const E = (a, b) => { pr += ln(a[0], a[1], b[0], b[1], C.dim, 3, "10 8"); };
+  const c3 = [[0, 0], [3, 0], [3, 3], [0, 3]];
+  c3.forEach((p, i) => { const q = c3[(i + 1) % 4]; E(Q(p[0], p[1], 0), Q(q[0], q[1], 0)); E(Q(p[0], p[1], 4), Q(q[0], q[1], 4)); E(Q(p[0], p[1], 0), Q(p[0], p[1], 4)); });
+  const apex = Q(1.5, 1.5, 4);
+  const pyr = poly([Q(0, 3, 0), Q(3, 3, 0), apex], "rgba(255,209,102,0.45)", "#fff", 4) + poly([Q(3, 0, 0), Q(3, 3, 0), apex], "rgba(255,209,102,0.25)", "#fff", 4);
+  const allp = [Q(0, 0, 0), Q(3, 0, 0), Q(3, 3, 0), Q(0, 3, 0), Q(0, 0, 4), Q(3, 3, 4)];
+  const prism = shp(s, pr, bbox(allp, 6)), pyramid = shp(s, pyr, bbox(allp, 6));
+  prism.fadeIn(t5); pyramid.fadeIn(t5 + 0.8);
+  s.text(`V = <span style="color:${C.x}">⅓</span> × base area × h`, 1560, 860, 52, { weight: 700 }).fadeIn(t5 + 1.4);
+  s.text("pyramid or cone: one third", 1560, 930, 38, { color: C.dim }).fadeIn(t5 + 2.0);
+});
+
+scene("S8Surface", s => {
+  s.text("Surface area = the area of the outside", CX, 175, 64, { weight: 700 }).fadeIn(s.c(0));
+  const P = ISO(420, 520, 52), b = slab(P, 4, 3, 0, 2, undefined, false);
+  const box3d = shp(s, b.svg, b.box);
+  box3d.fadeIn(s.c(0) + 0.5);
+  // net of a 4 x 3 x 2 box
+  const u = 52, cx = 420, x0 = cx - 2 * u, y0 = 300;
+  const face = (x, y, w, h, fill, label) => shp(s, poly([[x, y], [x + w, y], [x + w, y + h], [x, y + h]], fill, "#fff", 4) + T(x + w / 2, y + h / 2, label, 44, "#fff", 700), [x - 4, y - 4, x + w + 4, y + h + 4]);
+  const faces = [
+    face(x0, y0, 4 * u, 2 * u, TFILL, "8"), face(x0, y0 + 2 * u, 4 * u, 3 * u, FILL, "12"),
+    face(x0 - 2 * u, y0 + 2 * u, 2 * u, 3 * u, YFILL, "6"), face(x0 + 4 * u, y0 + 2 * u, 2 * u, 3 * u, YFILL, "6"),
+    face(x0, y0 + 5 * u, 4 * u, 2 * u, TFILL, "8"), face(x0, y0 + 7 * u, 4 * u, 3 * u, FILL, "12")];
+  const t1 = s.c(1);
+  box3d.fadeOut(t1, 0.5);
+  faces.forEach((f, i) => f.pop(t1 + 0.4 + i * 0.3));
+  s.text(`2(12) + 2(8) + 2(6) = <b>52</b>`, cx, 900, 46).fadeIn(t1 + 2.6);
+  // the can and its label
+  const t2 = s.c(2), kx = 900, rx = 92, ry = 28, top = 440, bot = 700, lt = 490, lb = 650;
+  const can = shp(s, `<path d="M${kx - rx},${top} V${bot} A${rx},${ry} 0 0 0 ${kx + rx},${bot} V${top}" fill="rgba(255,255,255,0.06)" stroke="#fff" stroke-width="5"/>` +
+    `<ellipse cx="${kx}" cy="${top}" rx="${rx}" ry="${ry}" fill="rgba(255,255,255,0.12)" stroke="#fff" stroke-width="5"/>`, [kx - rx - 6, top - ry - 6, kx + rx + 6, bot + ry + 6]);
+  const band = shp(s, `<path d="M${kx - rx},${lt} V${lb} A${rx},${ry} 0 0 0 ${kx + rx},${lb} V${lt} A${rx},${ry} 0 0 1 ${kx - rx},${lt} Z" fill="${YFILL}" stroke="${C.x}" stroke-width="4"/>`,
+    [kx - rx - 4, lt - 4, kx + rx + 4, lb + ry + 4]);
+  can.fadeIn(t2); band.fadeIn(t2 + 0.4);
+  const RX0 = 1080, RX1 = 1660;
+  const label = shp(s, poly([[RX0, lt], [RX1, lt], [RX1, lb], [RX0, lb]], YFILL, C.x, 5), [RX0 - 4, lt - 4, RX1 + 4, lb + 4]);
+  band.tw(t2 + 2.2, 0.8, { opacity: 0.25 }); label.write(t2 + 2.2, 1.6);
+  const t3 = s.c(3);
+  seg(s, RX1 + 40, lt, RX1 + 40, lb, C.op, 5, "10 9").fadeIn(t3);
+  s.text("h", RX1 + 75, (lt + lb) / 2, 52, { color: C.op, style: { fontStyle: "italic" } }).fadeIn(t3);
+  s.text("height of the can", (RX0 + RX1) / 2, (lt + lb) / 2, 38, { color: C.dim }).fadeIn(t3 + 0.4);
+  const t4 = s.c(4);
+  s.text(`<b style="color:${C.x}">2πr</b> <span style="color:${C.dim};font-size:38px">(circumference: all the way around)</span>`, (RX0 + RX1) / 2 + 40, lt - 50, 50).fadeIn(t4);
+  s.text(`Label area = <span style="color:${C.x}">2πr</span> × <span style="color:${C.op}">h</span>`, 1290, 790, 60, { weight: 700 }).pop(s.c(5));
+  s.text("the side only: no top or bottom", 1290, 865, 38, { color: C.dim }).fadeIn(s.c(5) + 0.6);
+});
+
+scene("S9Scale", s => {
+  s.text("Scaling up", CX, 175, 64, { weight: 700 }).fadeIn(s.c(0));
+  // squares
+  const sq = (x, y, w, fill) => shp(s, poly([[x, y], [x + w, y], [x + w, y + w], [x, y + w]], fill, "#fff", 5), [x - 4, y - 4, x + w + 4, y + w + 4]);
+  const small = sq(170, 420, 110, FILL), big = sq(390, 310, 220, FILL);
+  const t1 = s.c(1);
+  small.fadeIn(t1); s.text("1", 225, 570, 46).fadeIn(t1);
+  big.fadeIn(t1 + 0.8); s.text("2", 500, 570, 46, { color: C.x }).fadeIn(t1 + 0.8); s.text("2", 355, 420, 46, { color: C.x }).fadeIn(t1 + 0.8);
+  s.text(`perimeter: 4 → 8 &nbsp;<b style="color:${C.x}">(× 2)</b>`, 400, 655, 48).fadeIn(t1 + 1.2);
+  const t2 = s.c(2);
+  shp(s, ln(500, 310, 500, 530, "#fff", 3) + ln(390, 420, 610, 420, "#fff", 3), [386, 306, 614, 534]).fadeIn(t2);
+  s.text(`area: 1 → 4 &nbsp;<b style="color:${C.y}">(× 2²)</b>`, 400, 725, 48).fadeIn(t2 + 0.5);
+  // cubes
+  const t3 = s.c(3);
+  const c1 = slab(ISO(1010, 470, 80), 1, 1, 0, 1), c2 = slab(ISO(1350, 420, 80), 2, 2, 0, 2);
+  shp(s, c1.svg, c1.box).fadeIn(t3); shp(s, c2.svg, c2.box).fadeIn(t3 + 0.8);
+  s.text(`volume: 1 → 8 &nbsp;<b style="color:${C.op}">(× 2³)</b>`, 1200, 725, 48).fadeIn(t3 + 1.6);
+  // the rule
+  const t4 = s.c(4);
+  const boxes = [["lengths × k", "#fff", 520], ["area × k²", C.y, 960], ["volume × k³", C.op, 1400]].map(([t, c, x]) =>
+    s.add(`<div class="box" style="width:360px;height:96px;border-color:${c};color:${c};font-size:50px;font-weight:700">${t}</div>`, x, 830));
+  boxes.forEach((b, i) => b.pop(t4 + 0.4 + i * 0.9));
+  s.text("Scale drawings and maps: convert the lengths first, then multiply.", CX, 950, 46, { color: C.x, weight: 600 }).fadeIn(s.c(5));
+});
+
+function m19card(s, x, y, show = false) {
+  const f = figM19(135, 32, 46);
+  const html = `<div class="card" style="display:flex;align-items:center;gap:50px;padding:34px 56px;text-align:left">${f.svg}` +
+    `<div style="width:900px;white-space:normal"><div style="font-size:32px;color:${C.dim};margin-bottom:16px">Practice Test 2 · Question 19</div>` +
+    `<div style="font-size:38px;line-height:1.35"><i>Y</i> is the center of the circle. <i>NP</i> is a diameter. The perimeter of rectangle <i>MNPQ</i> is 36 centimeters. ` +
+    `<i>YZ</i> is a radius and <i>Z</i> is on <i>MQ</i>. What is the area of the circle?</div>` +
+    `<div style="font-size:40px;margin-top:20px;display:flex;gap:56px"><span>A. 6π</span><span>B. 9π</span><span>C. 24π</span><span>D. 36π</span></div></div></div>`;
+  return s.add(html, x, y, { show });
+}
+
+scene("S10Question", s => {
+  s.text("Your real question", CX, 175, 56, { color: C.x, weight: 700 }).fadeIn(s.c(0));
+  m19card(s, CX, 480).fadeIn(s.c(0) + 0.3);
+  s.text(`<span style="color:${C.dim}">Your answer:</span> <b style="color:${C.neg}">6π ✗</b> <span style="display:inline-block;width:90px"></span><span style="color:${C.dim}">Time:</span> <b style="color:${C.neg}">5 min 52 sec</b>`, CX, 800, 54).fadeIn(s.c(1));
+  s.text(`<span style="color:${C.dim}">Goal:</span> <b style="color:${C.op}">under 2 minutes</b>`, CX, 905, 58).pop(s.c(2));
+});
+
+scene("S11Solve", s => {
+  s.text(`Rectangle <i>MNPQ</i>: perimeter 36 cm. &nbsp;Find the area of the circle.`, CX, 175, 42, { color: C.dim }).fadeIn(s.c(0));
+  const f = figM19(190, 44, 52), YX = 450, YY = 560;
+  const ox = YX - f.Y[0], oy = YY - f.Y[1];
+  s.add(f.svg, ox + f.W / 2, oy + f.H / 2).fadeIn(s.c(0));
+  const g = p => [ox + p[0], oy + p[1]];
+  const [M, N, P, Q, Y, Z] = [f.M, f.N, f.P, f.Q, f.Y, f.Z].map(g);
+  const BX = 790;
+  s.badge(1, "Write every side in r", BX, 300).fadeIn(s.c(0) + 0.4);
+  const t1 = s.c(1);
+  seg(s, ...Y, ...Z, C.x, 7).fadeIn(t1, 0.5, 0);
+  s.text("r", Y[0] + 26, (Y[1] + Z[1]) / 2, 50, { color: C.x, style: { fontStyle: "italic" } }).fadeIn(t1 + 0.3);
+  seg(s, ...M, ...N, C.x, 9).fadeIn(t1 + 2.2, 0.5, 0); seg(s, ...Q, ...P, C.x, 9).fadeIn(t1 + 2.2, 0.5, 0);
+  s.text("r", M[0] - 34, (M[1] + N[1]) / 2, 50, { color: C.x, style: { fontStyle: "italic" } }).fadeIn(t1 + 2.4);
+  s.text("r", Q[0] + 34, (Q[1] + P[1]) / 2, 50, { color: C.x, style: { fontStyle: "italic" } }).fadeIn(t1 + 2.4);
+  const t2 = s.c(2);
+  seg(s, ...N, ...P, C.y, 9).fadeIn(t2, 0.5, 0); seg(s, ...M, ...Q, C.y, 9).fadeIn(t2 + 0.4, 0.5, 0);
+  s.text("2r", (N[0] + Y[0]) / 2, N[1] + 44, 48, { color: C.y, style: { fontStyle: "italic" } }).fadeIn(t2 + 0.3);
+  s.text("2r", (M[0] + Z[0]) / 2, M[1] - 36, 48, { color: C.y, style: { fontStyle: "italic" } }).fadeIn(t2 + 0.6);
+  const EX = 1340;
+  const t3 = s.c(3);
+  s.badge(2, "Use the perimeter", BX, 420).fadeIn(t3);
+  s.eq("r + 2r + r + 2r = 36", EX, 520, 62).write(t3 + 0.8, 2.2);
+  const t4 = s.c(4);
+  s.eq("6r = 36", EX, 615, 62).fadeIn(t4);
+  const e3 = s.eq("r = 6", EX, 710, 62); e3.fadeIn(t4 + 1.4);
+  const L3 = e3.L(), R3 = e3.R();
+  s.ring({ cx: (L3.l + R3.r) / 2, cy: L3.cy, w: R3.r - L3.l, h: L3.h }, C.x, 16).pop(t4 + 2.0);
+  s.badge(3, "Area = πr²", BX, 810).fadeIn(s.c(5));
+  const e4 = s.eq("A = π × 6² = 36π", EX, 905, 62); e4.fadeIn(s.c(6));
+  s.text("✓", e4.R().r + 50, 905, 62, { color: C.op, weight: 700 }).pop(s.c(6) + 1.4);
+});
+
+scene("S12Check", s => {
+  s.text("Check it", CX, 175, 64, { weight: 700 }).fadeIn(s.c(0));
+  s.text(`Your answer: <b style="color:${C.neg}">6π</b> = π × 6 &nbsp;<span style="color:${C.neg}">✗ the radius never got squared</span>`, CX, 300, 54).fadeIn(s.c(0) + 0.3);
+  const t1 = s.c(1);
+  const f = figM19(150, 38, 50);
+  const fig = s.add(f.svg, 450, 640); fig.fadeIn(t1);
+  const ox = 450 - f.W / 2, oy = 640 - f.H / 2;
+  s.text("6", ox + f.M[0] - 60, oy + (f.M[1] + f.N[1]) / 2, 46, { color: C.x }).fadeIn(t1 + 0.5);
+  s.text("12", ox + f.Y[0] - 60, oy + f.M[1] - 32, 46, { color: C.y }).fadeIn(t1 + 0.5);
+  s.text(`r = 6: &nbsp;6 + 12 + 6 + 12 = 36 <b style="color:${C.op}">✓</b>`, 860, 520, 56, { ax: 0 }).fadeIn(t1 + 1.0);
+  const t2 = s.c(2);
+  s.text(`A = π × 6² = π × 36 = <b style="color:${C.op}">36π</b>`, 860, 640, 56, { ax: 0 }).fadeIn(t2);
+  s.text(`Answer: <b style="color:${C.op}">D</b>`, 860, 730, 56, { ax: 0 }).pop(t2 + 1.5);
+  s.text("Past 2½ minutes? Make your best guess and move on.", CX, 930, 50, { color: C.neg, weight: 600 }).fadeIn(s.c(3));
+});
+
+scene("S13Recap", s => {
+  s.text("Your toolkit", CX, 175, 72, { weight: 700 }).fadeIn(s.c(0));
+  const lines = [
+    "Perimeter goes around. Area fills the inside.",
+    "Odd shapes: add the pieces, or subtract what's missing.",
+    "Circles: write r = ___ first. Leave π in the answer.",
+    "Right triangles: a² + b² = c².",
+    "Volume = base area × height. Pyramid or cone: ⅓ of that.",
+    "Lengths × k: area × k², volume × k³.",
+  ];
+  lines.forEach((l, i) => s.badge(i + 1, `<span style="color:#fff;font-weight:500">${esc(l)}</span>`, 300, 285 + i * 105, { size: 44 })
+    .fadeIn(s.c(i + 1), 0.6, 0).set(s.c(i + 1), { sx: -30 }).tw(s.c(i + 1), 0.6, { sx: 0 }));
+  s.text("Next: Workbook Unit 7 practice.  You've got this!", CX, 935, 54, { color: C.op, weight: 700 }).pop(s.c(7));
+});
+
+}
+
+</script>
+<script src="../boot.js"></script>
+</body></html>

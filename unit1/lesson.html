@@ -1,0 +1,389 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><title>Unit 1 · Solving Equations</title>
+<link rel="stylesheet" href="../lesson.css"></head>
+<body data-unit="unit1"><div id="stage"></div>
+<script src="lesson-data.js"></script>
+<script src="../engine.js"></script>
+<script>
+
+
+function build() {
+
+scene("S1Title", s => {
+  const unit = s.text("UNIT 1", CX, 330, 44, { color: C.op, weight: 700, style: { letterSpacing: "0.3em" } });
+  const title = s.text("Solving Equations", CX, 440, 132, { weight: 700 });
+  const sub = s.text("SHSAT Math with Victoria", CX, 550, 48, { color: C.dim });
+  unit.fadeIn(s.c(0)); title.write(s.c(0) + 0.3, 1.3); sub.fadeIn(s.c(0) + 1.5);
+  const stat = s.text(`Practice tests: <b style="color:${C.neg}">8 of 10</b> equation questions missed`, CX, 760, 50, { color: C.dim });
+  stat.fadeIn(s.c(1)); stat.fadeOut(s.c(2));
+  s.text("One idea fixes most of them.", CX, 760, 56, { color: C.x, weight: 600 }).fadeIn(s.c(2) + 0.3);
+});
+
+scene("S2Balance", s => {
+  const PX = CX, PY = 600, h = 480;
+  const title = s.text("An equation is a balance", CX, 90, 66, { weight: 700 });
+  const stand = s.add(`<svg width="300" height="230"><polygon points="150,0 60,210 240,210" fill="#9aa5b8"/><rect x="0" y="208" width="300" height="14" rx="7" fill="#9aa5b8"/></svg>`, PX, PY, { ay: 0 });
+  const beam = s.add(`<div style="width:${2 * h}px;height:16px;border-radius:8px;background:#fff"></div>`, PX, PY);
+  const plate = x => s.add(`<div style="width:360px;height:18px;border-radius:9px;background:#dfe6f0"></div>`, x, PY - 17);
+  const lp = plate(PX - h), rp = plate(PX + h);
+  const topY = PY - 26;
+  const xbox = s.add(`<div class="box" style="width:110px;height:110px;background:${C.x};border-color:${C.x};color:${C.bg};font-size:64px;font-weight:700;font-style:italic">x</div>`, PX - h - 60, topY - 55);
+  const unit = (x, y) => s.add(`<div style="width:50px;height:50px;border-radius:8px;background:${C.op}"></div>`, x, y);
+  const lu = [0, 1, 2].map(i => unit(PX - h + 40 + i * 58, topY - 25));
+  const ru = [];
+  for (let r = 0; r < 2; r++) for (let i = 0; i < 5; i++) ru.push(unit(PX + h + (i - 2) * 58, topY - 25 - r * 58));
+  const eq1 = s.eq("x + 3 = 10", CX, 940);
+
+  const t0 = s.c(0);
+  title.fadeIn(t0); [stand, beam, lp, rp].forEach((it, i) => it.fadeIn(t0 + 0.3 + i * 0.15));
+  const t1 = s.c(1);
+  xbox.fadeIn(t1, 0.5, -60); lu.forEach((u, i) => u.fadeIn(t1 + 0.3 + i * 0.12, 0.4, -60));
+  ru.forEach((u, i) => u.fadeIn(t1 + 0.8 + i * 0.08, 0.4, -60));
+  eq1.fadeIn(t1 + 1.6);
+
+  // Tilt: left pan up when it gets lighter.
+  const th = 9 * Math.PI / 180, dx = h * (1 - Math.cos(th)), dy = h * Math.sin(th);
+  const leftG = [lp, xbox], rightG = [rp, ...ru];
+  const t2 = s.c(2);
+  const m1 = s.text(m("− 3"), PX - h + 98, topY - 130, 60, { color: C.op, weight: 600 });
+  m1.fadeIn(t2); m1.fadeOut(t2 + 1.0);
+  lu.forEach((u, i) => { u.shift(t2 + 0.6 + i * 0.1, 0.7, -60, -260, "out"); u.fadeOut(t2 + 0.8 + i * 0.1, 0.5); });
+  xbox.shift(t2 + 1.0, 0.5, 60, 0);
+  const tt = t2 + 1.5;
+  beam.rotate(tt, 1.2, 9);
+  leftG.forEach(it => it.shift(tt, 1.2, dx, -dy)); rightG.forEach(it => it.shift(tt, 1.2, -dx, dy));
+  const tips = s.text("tips!", CX, 330, 64, { color: C.neg, weight: 700 });
+  tips.pop(tt + 0.8);
+
+  const t3 = s.c(3);
+  tips.fadeOut(t3);
+  const take = ru.slice(7);
+  const m2 = s.text(m("− 3"), PX + h + 58, topY - 200 + dy, 60, { color: C.op, weight: 600 });
+  m2.fadeIn(t3); m2.fadeOut(t3 + 1.0);
+  take.forEach((u, i) => { u.shift(t3 + 0.6 + i * 0.1, 0.7, 80, -260, "out"); u.fadeOut(t3 + 0.8 + i * 0.1, 0.5); });
+  const tb = t3 + 1.5;
+  beam.rotate(tb, 1.2, 0);
+  leftG.forEach(it => it.shift(tb, 1.2, -dx, dy)); ru.slice(0, 7).concat([rp]).forEach(it => it.shift(tb, 1.2, dx, -dy));
+  const bal = s.text("balanced", CX, 330, 64, { color: C.op, weight: 700 });
+  bal.pop(tb + 0.9);
+
+  const t4 = s.c(4);
+  bal.fadeOut(t4); eq1.fadeOut(t4);
+  const eq2 = s.eq("x = 7", CX, 940);
+  eq2.fadeIn(t4 + 0.3); eq2.pulse(t4 + 1.0, 1.25);
+
+  s.text("Whatever you do to one side, do to the other.", CX, 190, 54, { color: C.x, weight: 600 }).fadeIn(s.c(5));
+});
+
+// ---- Unit 1 helpers for Manim-style moves ----
+// Scale pulse for an item that already sits at a non-1 scale (Item.pulse always returns to scale 1).
+const bump = (it, t, k0 = 1, k = 1.25) => it.tw(t, 0.25, { scale: k0 * k }).tw(t + 0.25, 0.35, { scale: k0 }, "inout");
+// "a/b = c/d" fractions lined up under an equation's "=" (e is an eqParts).
+function fracRow(s, e, ln, ld, rn, rd, y, size, o = {}) {
+  const Er = e.E.rect();
+  const lf = s.frac(ln, ld, 0, y, size, { ...o, ax: 1 }); lf.base.x = Er.l - 24; lf.apply(lf.base);
+  const eq = s.text("=", Er.cx, y, size);
+  const rf = s.frac(rn, rd, 0, y, size, { ...o, ax: 0 }); rf.base.x = Er.r + 24; rf.apply(rf.base);
+  return { lf, eq, rf, all: [lf, eq, rf] };
+}
+// A copy of `html` flies from (x0, y0) to (x1, y1) between t and t + d, growing by `k`, then vanishes.
+function fly(s, html, size, x0, y0, x1, y1, t, d = 1.0, k = 1, color = "#fff") {
+  const g = s.text(html, x0, y0, size, { color });
+  g.show(t); g.tw(t, d, { x: x1, y: y1, scale: k }, "inout"); g.fadeOut(t + d, 0.15);
+  return g;
+}
+
+scene("S3Unwrap", s => {
+  const EY = [215, 385, 575, 770];
+  const e1 = s.eqParts("3x − 5 = 16", CX, EY[0]);
+  e1.write(s.c(0), 1.2);
+  const xs = [620, 900, 1180, 1460];
+  const chain = (labels, colors, y, rev) => {
+    const boxes = labels.map((l, i) => s.add(`<div class="box" style="width:200px;height:120px;border-color:${colors[i]};color:${colors[i]};font-size:60px;font-weight:600">${m(l)}</div>`, xs[i], y));
+    const arrows = [0, 1, 2].map(i => s.add(`<svg width="80" height="40"><path d="${rev ? "M74 20 H12 M26 6 L10 20 L26 34" : "M6 20 H68 M54 6 L70 20 L54 34"}" stroke="${rev ? C.op : "#fff"}" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`, (xs[i] + xs[i + 1]) / 2, y));
+    return { boxes, arrows };
+  };
+  const t1 = s.c(1);
+  const wrapL = s.text("wrap", 250, 430, 44, { color: C.dim });
+  const f = chain(["x", "× 3", "− 5", "16"], [C.x, "#fff", "#fff", "#fff"], 430, false);
+  wrapL.fadeIn(t1);
+  [f.boxes[0], f.arrows[0], f.boxes[1], f.arrows[1], f.boxes[2], f.arrows[2], f.boxes[3]].forEach((it, i) => it.fadeIn(t1 + 0.3 + i * 0.35, 0.4, 0));
+  const t2 = s.c(2);
+  const unL = s.text("unwrap", 250, 640, 44, { color: C.op, weight: 600 });
+  const r = chain(["7", "÷ 3", "+ 5", "16"], [C.x, C.op, C.op, "#fff"], 640, true);
+  unL.fadeIn(t2);
+  [r.boxes[3], r.arrows[2], r.boxes[2], r.arrows[1], r.boxes[1], r.arrows[0], r.boxes[0]].forEach((it, i) => it.fadeIn(t2 + 0.3 + i * 0.35, 0.4, 0));
+  const note = s.text(`Undo <b style="color:${C.op}">+ and −</b> first, then <b style="color:${C.op}">× and ÷</b>`, CX, 840, 54, { color: C.x });
+  note.fadeIn(t2 + 3.0);
+
+  // Add 5: the wrap row goes; the unwrap chain shrinks to the bottom as the map, and lights up at each step.
+  const t3 = s.c(3);
+  [wrapL, note, ...f.boxes, ...f.arrows].forEach(it => it.fadeOut(t3, 0.5));
+  const K = 0.6, BY = 930, mid = (xs[0] + xs[3]) / 2;
+  [...r.boxes, ...r.arrows].forEach(it => it.tw(t3, 0.9, { x: CX + (it.base.x - mid) * K, y: BY, scale: K }, "inout"));
+  unL.tw(t3, 0.9, { x: CX + (xs[0] - 100 - mid) * K - 80, y: BY, scale: 0.85 }, "inout");
+  const [a, b] = s.opsInline(e1, "+ 5", "+ 5", t3 + 0.2);
+  bump(r.boxes[2], t3 + 1.0, K);
+
+  // −5 + 5 cancels; the line collapses to 3x = 21.
+  const t4 = s.c(4);
+  const m5 = s.partBox(e1.L, "− 5", t4), ab = a.rect();
+  s.cancel({ l: m5.l, r: ab.r, t: Math.min(m5.t, ab.t), b: Math.max(m5.b, ab.b) }, t4);
+  const e2 = s.eqParts("3x = 21", CX, EY[1]);
+  s.morph([e1.L, a], e2.L, t4 + 0.35, 1.0);
+  s.morph([e1.E], e2.E, t4 + 0.8, 0.8);
+  s.morph([e1.R, b], e2.R, t4 + 0.9, 0.9);
+  const tip = s.text("−5 + 5 = 0", (m5.l + ab.r) / 2, EY[0] + 70, 34, { color: C.neg });
+  tip.fadeIn(t4 + 1.3, 0.4, 0); tip.fadeOut(s.c(5));
+
+  // Divide both sides by 3, as real fractions; the 3s on the left cancel.
+  const t5 = s.c(5);
+  const fr = fracRow(s, e2, "3x", "3", "21", "3", EY[2], 76, { denColor: C.op, barColor: C.op });
+  fr.all.forEach((it, i) => s.morph([[e2.L, e2.E, e2.R][i]], it, t5 + 0.2, 0.9));
+  bump(r.boxes[1], t5 + 0.3, K);
+  const t6 = s.c(6);
+  s.cancel(s.partBox(fr.lf, "3", t6, true), t6, C.neg, 0.35);
+  s.cancel(fr.lf.rect(".fd"), t6 + 0.3, C.neg, 0.35);
+  s.text("21 ÷ 3 = 7", fr.rf.rect().r + 60, EY[2], 40, { color: C.op, ax: 0 }).fadeIn(t6 + 0.6, 0.5, 0);
+
+  // x = 7.
+  const t7 = s.c(7);
+  const e4 = s.eqParts("x = 7", CX, EY[3]);
+  [fr.lf, fr.eq, fr.rf].forEach((it, i) => s.morph([it], e4.all[i], t7 + 0.1, 0.9));
+  s.ring(e4.box(), C.x, 24).pop(t7 + 1.1);
+  bump(r.boxes[0], t7 + 1.1, K);
+});
+
+scene("S4Negatives", s => {
+  const EX = 800, Y = [318, 485, 670, 855];
+  s.text(`Watch the <span style="color:${C.neg}">negatives</span>`, CX, 166, 66, { weight: 700 }).fadeIn(s.c(0));
+  const e1 = s.eqParts("−4x + 6 = 26", EX, Y[0]);
+  e1.write(s.c(1), 1.2);
+  const n1 = s.ring(s.partBox(e1.L, "−4", 0, true), C.neg, 10);
+  n1.pop(s.c(1) + 0.6); n1.fadeOut(s.c(2), 0.3);
+
+  // Subtract 6 from both sides, written into the line; +6 − 6 cancels; collapse to −4x = 20.
+  const t2 = s.c(2);
+  const [a, b] = s.opsInline(e1, "− 6", "− 6", t2 + 0.3);
+  const t3 = s.c(3);
+  const p6 = s.partBox(e1.L, "+ 6", t3), ab = a.rect();
+  s.cancel({ l: p6.l, r: ab.r, t: Math.min(p6.t, ab.t), b: Math.max(p6.b, ab.b) }, t3);
+  const e2 = s.eqParts("−4x = 20", EX, Y[1]);
+  s.morph([e1.L, a], e2.L, t3 + 0.3, 1.0);
+  s.morph([e1.E], e2.E, t3 + 0.9, 0.8);
+  s.morph([e1.R, b], e2.R, t3 + 1.0, 0.9);
+  const tip = s.text("+6 − 6 = 0", (p6.l + ab.r) / 2, Y[0] + 80, 34, { color: C.neg });
+  tip.fadeIn(t3 + 1.3, 0.4, 0); tip.fadeOut(s.c(4));
+
+  // Divide both sides by −4 (negative four, not four), as real fractions.
+  const t4 = s.c(4);
+  const fr = fracRow(s, e2, "−4x", "−4", "20", "−4", Y[2], 76, { denColor: C.neg, barColor: C.neg });
+  fr.all.forEach((it, i) => s.morph([e2.all[i]], it, t4 + 0.5, 0.9));
+  const t5 = s.c(5);
+  const rfr = fr.rf.rect();
+  const not4 = s.text("÷ 4", rfr.r + 110, Y[2], 64, { color: C.dim, ax: 0 });
+  not4.pop(t5);
+  const no4 = s.cancel(not4, t5 + 0.4, C.neg, 0.3);
+  const t6 = s.c(6);
+  const dl = s.ring(fr.lf.rect(".fd"), C.neg, 8), dr = s.ring(fr.rf.rect(".fd"), C.neg, 8);
+  dl.pop(t6); dr.pop(t6 + 0.15);
+  const t7 = s.c(7);
+  [dl, dr, not4, no4].forEach(it => it.fadeOut(t7, 0.3));
+  s.cancel(s.partBox(fr.lf, "−4", t7, true), t7 + 0.1, C.neg, 0.35);
+  s.cancel(fr.lf.rect(".fd"), t7 + 0.4, C.neg, 0.35);
+  fr.rf.pulse(t7 + 0.8, 1.12);
+
+  // x = −5, and the sign stays glued on.
+  const t8 = s.c(8);
+  const e3 = s.eqParts("x = −5", EX, Y[3]);
+  fr.all.forEach((it, i) => s.morph([it], e3.all[i], t8 - 0.4, 0.9));
+  const pn = s.text("positive ÷ negative = negative", rfr.r + 110, Y[2], 40, { color: C.op, ax: 0 });
+  pn.fadeIn(t8 + 0.4, 0.5, 0); pn.fadeOut(s.c(10), 0.4);
+  const t9 = s.c(9);
+  const R3 = e3.R.rect();
+  s.ring(R3, C.neg, 14).pop(t9);
+  s.text("glued on!", R3.cx, Y[3] + 102, 40, { color: C.neg, weight: 600 }).fadeIn(t9 + 0.3);
+
+  // Check: −5 moves into the original equation's left side, which evaluates in place.
+  const t10 = s.c(10), KX = 1290, KY = [485, 615, 745], KS = 76;
+  const head = s.text("Check:", KX, 385, 48, { color: C.op, weight: 700, ax: 0 });
+  head.fadeIn(t10, 0.5, 0);
+  const eqW = s.text("=", 0, 0, KS).rect().w + KS * 0.3;   // probe width of "= "
+  s.items.pop().el.remove();
+  const AX = KX + eqW;
+  const p1 = s.text(m("−4("), AX, KY[0], KS, { ax: 0 });
+  const slot = s.text(m("−5"), p1.rect().r, KY[0], KS, { ax: 0 });
+  const p3 = s.text(m(") + 6"), slot.rect().r, KY[0], KS, { ax: 0 });
+  p1.fadeIn(t10 + 0.2, 0.5, 0); p3.fadeIn(t10 + 0.2, 0.5, 0);
+  const sr = slot.rect();
+  fly(s, m("−5"), 84, R3.cx, R3.cy, sr.cx, sr.cy, t10 + 0.4, 1.0, KS / 84);
+  slot.show(t10 + 1.4);
+  const r4 = s.ring(s.partBox(p1, "−4", 0, true), C.neg, 3), r5 = s.ring(sr, C.neg, 3);
+  r4.pop(t10 + 1.4); r5.pop(t10 + 2.55);
+  const t11 = s.c(11);
+  r4.fadeOut(t11, 0.3); r5.fadeOut(t11, 0.3);
+  const q2 = s.text("=", KX, KY[1], KS, { ax: 0 });
+  const a2 = s.text("20", AX, KY[1], KS, { ax: 0, color: C.op });
+  const b2 = s.text(m("+ 6"), a2.rect().r + KS * 0.28, KY[1], KS, { ax: 0 });
+  s.morph([p1, slot], a2, t11, 0.9);
+  s.morph([p3], b2, t11 + 0.1, 0.9);
+  q2.fadeIn(t11 + 0.5, 0.5, 0);
+  const t12 = s.c(12);
+  const q3 = s.text("=", KX, KY[2], KS, { ax: 0 });
+  const a3 = s.text("26", AX, KY[2], KS, { ax: 0 });
+  s.morph([a2, b2], a3, t12 + 0.5, 0.9);
+  q3.fadeIn(t12 + 1.0, 0.5, 0);
+  const t13 = s.c(13);
+  s.ring(a3.rect(), C.op, 6).pop(t13);
+  s.ring(e1.R.rect(), C.op, 6).pop(t13 + 0.2);
+  s.text("✓", a3.rect().r + 50, KY[2], 72, { color: C.op, weight: 700, ax: 0 }).pop(t13 + 0.3);
+});
+
+function questionCard(s, x, y, scale = 1, show = false) {
+  const html = `<div class="card"><div style="font-size:36px;color:${C.dim};margin-bottom:22px">Practice Test 2 · Question 30</div>` +
+    `<div style="font-size:60px;margin-bottom:16px">Solve for ${m("x")} if</div>` +
+    `<div style="font-size:72px;font-weight:500"><span class="given">${m("y = 2.5")}</span>` +
+    `<span style="font-size:48px;color:${C.dim};margin:0 34px">and</span>${m("y = −2x − 17")}</div></div>`;
+  const it = s.add(html, x, y, { show });
+  it.base.scale = scale;
+  it.apply(it.base);
+  return it;
+}
+
+scene("S5Question", s => {
+  s.text("Your real question", CX, 120, 56, { color: C.x, weight: 700 }).fadeIn(s.c(0));
+  questionCard(s, CX, 450).fadeIn(s.c(0) + 0.3);
+  s.text(`<span style="color:${C.dim}">Your answer:</span> <b style="color:${C.neg}">−16 ✗</b> <span style="display:inline-block;width:90px"></span><span style="color:${C.dim}">Time:</span> <b style="color:${C.neg}">2 min 48 sec</b>`, CX, 780, 54).fadeIn(s.c(1));
+  s.text(`<span style="color:${C.dim}">Goal:</span> <b style="color:${C.op}">under 1 minute</b>`, CX, 890, 58).pop(s.c(2));
+});
+
+scene("S6Solve", s => {
+  const card = questionCard(s, 1500, 110, 0.5, true);
+  const EX = 820;
+  const step = (n, label, y) => s.badge(n, label, 90, y);
+
+  // 1. Substitute: 2.5 flies from the question into y's place.
+  step(1, "Substitute", 250).fadeIn(s.c(0));
+  const r0 = s.eqParts("y = −2x − 17", EX, 250);
+  r0.fadeIn(s.c(0) + 0.3);
+  const ry = s.ring(r0.L.rect(), C.y, 14); ry.pop(s.c(0) + 1.4);
+  const given = card.rect(".given");
+  const gy = s.ring(given, C.y, 8); gy.pop(s.c(0) + 1.4);
+  const t1 = s.c(1);
+  const e1 = s.eqParts("2.5 = −2x − 17", EX, 250);
+  const fly = s.text(m("2.5"), given.r - 35, given.cy, 72 * 0.5, { color: "#fff" });
+  fly.show(t1); fly.tw(t1, 1.0, { x: e1.L.rect().cx, y: 250, scale: 2.0 }, "inout"); fly.fadeOut(t1 + 1.1, 0.2);
+  ry.fadeOut(t1); gy.fadeOut(t1); r0.L.fadeOut(t1, 0.4);
+  r0.E.fadeOut(t1 + 1.1, 0.1); r0.R.fadeOut(t1 + 1.1, 0.1);
+  e1.show(t1 + 1.1);
+
+  // 2. Write "+ 17" into both sides, cross out −17 + 17, collapse to the next line.
+  const t2 = s.c(2);
+  step(2, "Undo − first", 430).fadeIn(t2);
+  const [a, b] = s.opsInline(e1, "+ 17", "+ 17", t2 + 1.4);
+  const t3 = s.c(3);
+  const m17 = s.partBox(e1.R, "− 17", t3);
+  const bb = b.rect();
+  s.cancel({ l: m17.l, r: bb.r, t: Math.min(m17.t, bb.t), b: Math.max(m17.b, bb.b) }, t3 + 3.2);
+  const e2 = s.eqParts("19.5 = −2x", EX, 430);
+  s.morph([e1.L, a], e2.L, t3 + 0.4, 1.1);
+  s.morph([e1.E], e2.E, t3 + 4.2, 0.8);
+  s.morph([e1.R], e2.R, t3 + 4.2, 0.8);
+  const tip = s.text("−17 + 17 = 0", 0, 340, 34, { color: C.neg, ax: 0 });
+  tip.base.x = bb.r + 30; tip.apply(tip.base); tip.fadeIn(t3 + 3.4); tip.fadeOut(s.c(4));
+
+  // 3. Divide both sides by −2, shown as real fractions; the −2s on the right cancel.
+  const t4 = s.c(4);
+  step(3, "Divide by −2", 640).fadeIn(t4);
+  const Er = e2.E.rect();
+  const lf = s.frac("19.5", "−2", 0, 640, 76, { denColor: C.neg, barColor: C.neg, ax: 1 });
+  lf.base.x = Er.l - 24; lf.apply(lf.base);
+  const eq3 = s.text("=", Er.cx, 640, 76);
+  const rf = s.frac("−2x", "−2", 0, 640, 76, { denColor: C.neg, barColor: C.neg, ax: 0 });
+  rf.base.x = Er.r + 24; rf.apply(rf.base);
+  s.morph([e2.L], lf, t4 + 0.3, 0.9);
+  s.morph([e2.E], eq3, t4 + 0.3, 0.9);
+  s.morph([e2.R], rf, t4 + 0.3, 0.9);
+  const t5 = s.c(5);
+  s.cancel(s.partBox(rf, "−2", t5, true), t5 + 0.4, C.neg, 0.35);
+  s.cancel(rf.rect(".fd"), t5 + 0.7, C.neg, 0.35);
+
+  // 4. The answer.
+  const e4 = s.eqParts("−9.75 = x", EX, 830);
+  s.morph([lf], e4.L, t5 + 1.6, 1.0);
+  s.morph([eq3], e4.E, t5 + 1.6, 1.0);
+  s.morph([rf], e4.R, t5 + 1.6, 1.0);
+  s.ring(e4.box(), C.x, 24).pop(t5 + 2.8);
+  s.text("positive ÷ negative = negative", 1480, 830, 40, { color: C.op }).fadeIn(t5 + 3.6);
+});
+
+scene("S7Check", s => {
+  const card = questionCard(s, 1450, 222, 0.5, true);
+  const top = s.eq("x = −9.75", 470, 222, 72, { show: true });
+  const L = top.L(), R = top.R();
+  s.add(`<div style="width:${R.r - L.l + 44}px;height:${L.h + 40}px;border:5px solid ${C.x};border-radius:18px"></div>`, (L.l + R.r) / 2, L.cy, { show: true });
+  s.badge(4, "Check: plug it back in", 90, 375).fadeIn(s.c(0));
+  const EX = 700, Y = [510, 650, 790], gap = 84 * 0.28;
+
+  // The equation comes down from the question; then −9.75 moves into x's place.
+  const t0 = s.c(0);
+  const e0 = s.eqParts("y = −2x − 17", EX, Y[0]);
+  const cb = s.partBox(card, "y = −2x − 17"), b0 = e0.box();
+  fly(s, m("y = −2x − 17"), 36, cb.cx, cb.cy, b0.cx, Y[0], t0 + 0.5, 1.1, 84 / 36);
+  e0.show(t0 + 1.6);
+  const xr = s.partBox(e0.R, "x");
+  const rx = s.ring(xr, C.x, 8); rx.pop(t0 + 2.0);
+  const A = s.text(m("−2(−9.75)"), e0.R.rect().l, Y[0], 84, { ax: 0 });
+  const B = s.text(m("− 17"), A.rect().r + gap, Y[0], 84, { ax: 0 });
+  const slot = s.partBox(A, "−9.75");
+  fly(s, m("−9.75"), 72, R.cx, R.cy, slot.cx, slot.cy, t0 + 2.4, 1.0, 84 / 72);
+  rx.fadeOut(t0 + 2.9, 0.3); e0.R.fadeOut(t0 + 2.9, 0.3);
+  A.fadeIn(t0 + 3.2, 0.4, 0); B.fadeIn(t0 + 3.2, 0.4, 0);
+
+  // Negative times negative: −2(−9.75) becomes 19.5 right below it.
+  const t1 = s.c(1);
+  const n2 = s.ring(s.partBox(A, "−2", 0, true), C.neg, 8), n9 = s.ring(slot, C.neg, 8);
+  n2.pop(t1 + 0.1); n9.pop(t1 + 1.3);
+  const t2 = s.c(2);
+  n2.fadeOut(t2, 0.3); n9.fadeOut(t2, 0.3);
+  const E1 = s.text("=", e0.E.rect().cx, Y[1], 84);
+  const A1 = s.text("19.5", A.rect().l, Y[1], 84, { ax: 0 });
+  const B1 = s.text(m("− 17"), A1.rect().r + gap, Y[1], 84, { ax: 0 });
+  s.morph([A], A1, t2, 0.9); s.morph([e0.E], E1, t2, 0.9); s.morph([B], B1, t2 + 0.15, 0.9);
+  const pp = s.text("negative × negative = positive", B1.rect().r + 70, Y[1], 40, { color: C.op, ax: 0 });
+  pp.fadeIn(t2 + 0.6, 0.5, 0);
+
+  // 19.5 − 17 becomes 2.5.
+  const t3 = s.c(3);
+  B1.pulse(t3 + 0.1, 1.15);
+  const t4 = s.c(4);
+  const E2 = s.text("=", e0.E.rect().cx, Y[2], 84);
+  const A2 = s.text("2.5", A.rect().l, Y[2], 84, { ax: 0 });
+  s.morph([A1, B1], A2, t4, 0.9); s.morph([E1], E2, t4, 0.9);
+
+  // It matches the y we were given.
+  const t5 = s.c(5);
+  const ar = A2.rect();
+  s.ring(ar, C.op, 12).pop(t5);
+  s.ring(card.rect(".given"), C.op, 6).pop(t5 + 0.2);
+  s.text(`✓ matches ${m("y = 2.5")}`, ar.r + 60, Y[2], 54, { color: C.op, weight: 700, ax: 0 }).pop(t5 + 0.5);
+  s.text("Adaptive SHSAT: no going back in Math. Check before you move on.", CX, 925, 46, { color: C.neg, weight: 600 }).fadeIn(s.c(6));
+});
+
+scene("S8Recap", s => {
+  s.text("The recipe", CX, 120, 76, { weight: 700 }).fadeIn(s.c(0));
+  const lines = [
+    "Substitute anything you're given.",
+    "Undo + and − first, then × and ÷. Same to both sides.",
+    "Watch your negative signs.",
+    "Plug your answer back in to check.",
+  ];
+  lines.forEach((l, i) => s.badge(i + 1, `<span style="color:#fff;font-weight:500">${esc(l)}</span>`, 330, 290 + i * 125, { size: 48 }).fadeIn(s.c(i + 1), 0.6, 0).set(s.c(i + 1), { sx: -30 }).tw(s.c(i + 1), 0.6, { sx: 0 }));
+  s.text("Next: Workbook Unit 1 practice.  You've got this!", CX, 900, 54, { color: C.op, weight: 700 }).pop(s.c(5));
+});
+
+}
+
+</script>
+<script src="../boot.js"></script>
+</body></html>

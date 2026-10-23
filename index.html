@@ -1,0 +1,59 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Victoria's SHSAT Math</title>
+<style>
+  :root { --bg: #0f1b2d; --card: #17284a; --line: #2a3f63; --text: #fff; --dim: #9aa5b8; --x: #ffd166; --op: #06d6a0; --neg: #ef476f; }
+  body { margin: 0; min-height: 100vh; background: radial-gradient(ellipse at 50% 0%, #1d355f 0%, var(--bg) 70%) fixed; color: var(--text);
+    font-family: "Avenir Next", Avenir, "Helvetica Neue", sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 56px 16px 80px; }
+  .eyebrow { color: var(--op); font-weight: 700; letter-spacing: 0.25em; font-size: 15px; }
+  h1 { font-size: clamp(34px, 6vw, 56px); margin: 8px 0 6px; }
+  .sub { color: var(--dim); font-size: 19px; margin: 0 0 36px; max-width: 720px; line-height: 1.5; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; }
+  a.unit { display: flex; flex-direction: column; gap: 10px; padding: 24px 26px; border-radius: 20px; background: var(--card);
+    border: 2px solid var(--line); color: inherit; text-decoration: none; transition: transform .15s, border-color .15s; }
+  a.unit:hover { transform: translateY(-3px); border-color: var(--x); }
+  .num { color: var(--x); font-weight: 700; font-size: 15px; letter-spacing: 0.15em; }
+  .title { font-size: 25px; font-weight: 700; line-height: 1.2; }
+  .what { color: var(--dim); font-size: 16px; line-height: 1.4; flex: 1; }
+  .status { font-size: 16px; font-weight: 600; color: var(--dim); }
+  .status.done { color: var(--op); } .status.mid { color: var(--x); }
+  .bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--op); }
+  .missing { opacity: 0.45; pointer-events: none; }
+  footer { margin-top: 40px; color: var(--dim); font-size: 15px; line-height: 1.6; }
+</style></head>
+<body><main>
+  <div class="eyebrow">SHSAT MATH</div>
+  <h1>Victoria's lessons</h1>
+  <p class="sub">Each unit mixes short animated lessons with your turns to practice, then an SHSAT-style set that includes questions you missed on your practice tests. Sound on. About 15–20 minutes each.</p>
+  <div class="grid" id="grid"></div>
+  <footer>Your scores are saved in this browser. Retake any unit to practice the ones you missed.</footer>
+</main>
+<script>
+const UNITS = [
+  [1, "Solving Equations", "Balance both sides, undo in reverse, keep negative signs glued on."],
+  [2, "Turning Words into Equations", "Translate a word problem into an equation, then solve it."],
+  [3, "Percents", "Percent of, percent change, and working backward from a total."],
+  [4, "Ratios, Rates & Unit Conversions", "Set up proportions and convert units without getting lost."],
+  [5, "Probability & Averages", "Chances with and without replacement, and mean, median and mode."],
+  [6, "Angles", "Angles on lines, in triangles, and around parallel lines."],
+  [7, "Area, Circles & Volume", "The formulas you need and how to use them on composite shapes."],
+  [8, "Negatives, Exponents & Scientific Notation", "Signs, order of operations, exponent rules, and very big and very small numbers."],
+];
+const grid = document.getElementById("grid");
+for (const [n, title, what] of UNITS) {
+  let runs = [];
+  try { runs = JSON.parse(localStorage.getItem("shsat-unit" + n) || "[]"); } catch {}
+  const done = runs.filter(r => r.summary);
+  const best = done.reduce((b, r) => (!b || r.summary.first / r.summary.total > b.first / b.total ? r.summary : b), null);
+  const status = best ? `<span class="status done">Best: ${best.first} of ${best.total} on the first try</span><div class="bar"><i style="width:${100 * best.first / best.total}%"></i></div>`
+    : runs.length ? `<span class="status mid">In progress</span>` : `<span class="status">Not started</span>`;
+  const a = document.createElement("a");
+  a.className = "unit";
+  a.href = `unit${n}/lesson.html`;
+  a.innerHTML = `<span class="num">UNIT ${n}</span><span class="title">${title.replace("&", "&amp;")}</span><span class="what">${what}</span>${status}`;
+  grid.appendChild(a);
+}
+</script>
+</body></html>

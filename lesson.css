@@ -1,0 +1,101 @@
+/* Avenir Next draws π like a Cyrillic "п"; use a serif π for that one character. */
+@font-face { font-family: "PiFix"; src: local("Georgia"); unicode-range: U+03C0; }
+/* Shared look for every unit: stage, math text, and the interactive UI. */
+  html, body { margin: 0; background: #0f1b2d; overflow: hidden; }
+  #stage { position: relative; width: 1920px; height: 1080px; overflow: hidden; color: #fff;
+    font-family: "PiFix", "Avenir Next", Avenir, "Helvetica Neue", sans-serif;
+    background: radial-gradient(ellipse at 50% 35%, #1a3159 0%, #0f1b2d 70%); }
+  .scene { position: absolute; inset: 0; display: none; }
+  .it { position: absolute; left: 0; top: 0; white-space: nowrap; }
+  .x { color: #ffd166; font-style: italic; font-weight: 600; }
+  .y { color: #8ecae6; font-style: italic; font-weight: 600; }
+  .eqrow { display: grid; grid-template-columns: 800px auto 800px; column-gap: 0.32em; font-weight: 500; }
+  .L { text-align: right; } .R { text-align: left; } .E { color: #fff; }
+  .side { display: inline-block; }
+  .badge { display: inline-flex; align-items: center; justify-content: center; width: 1.5em; height: 1.5em;
+    border-radius: 0.4em; background: #ffd166; color: #0f1b2d; font-weight: 700; }
+  .box { border: 4px solid; border-radius: 22px; display: flex; align-items: center; justify-content: center; }
+  .card { border: 3px solid #9aa5b8; border-radius: 28px; padding: 40px 70px; text-align: center; background: rgba(255,255,255,0.03); }
+  body.play #stage { transform-origin: 0 0; }
+  #ui > div { position: absolute; }
+  #quiz, #summary { inset: 0; display: none; flex-direction: column; align-items: center; gap: 24px; padding: 120px 150px 36px;
+    background: radial-gradient(ellipse at 50% 30%, #1d355f 0%, #0f1b2d 75%); box-sizing: border-box; }
+  .qhead { width: 100%; display: flex; justify-content: space-between; align-items: baseline; }
+  .qtitle { color: #06d6a0; font-size: 44px; font-weight: 700; }
+  .qcount { color: #9aa5b8; font-size: 34px; }
+  .qtag { background: #ffd166; color: #0f1b2d; font-size: 30px; font-weight: 700; padding: 8px 22px; border-radius: 30px; }
+  .qtext { font-size: 70px; font-weight: 500; text-align: center; }
+  .qtext.long { font-size: 48px; max-width: 1620px; text-align: left; line-height: 1.3; }
+  .qfig { max-width: 680px; max-height: 470px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+  .qfig svg { display: block; max-width: 680px; max-height: 470px; }
+  .withfig { gap: 50px; }
+  .withfig .choice { width: 420px; height: 104px; font-size: 48px; }
+  .withfig .choices { gap: 20px; }
+  .answer { display: flex; align-items: center; gap: 70px; }
+  .fill { font-size: 76px; display: flex; align-items: center; gap: 18px; }
+  .num { width: 270px; font: 600 68px "PiFix", "Avenir Next", sans-serif; text-align: center; color: #fff; background: #1c2f50;
+    border: 4px solid #9aa5b8; border-radius: 18px; padding: 6px 10px; outline: none; }
+  .num:focus { border-color: #ffd166; }
+  .num.wide { width: 560px; }
+  .num.small { width: 160px; }
+  .fixed { white-space: nowrap; }
+  .key.var { color: #8ecae6; font-style: italic; }
+  .right .num, .right .choice.sel { border-color: #06d6a0 !important; }
+  .keypad { display: grid; grid-template-columns: repeat(3, 104px); gap: 10px; }
+  .key { height: 66px; font: 600 40px "PiFix", "Avenir Next", sans-serif; color: #fff; background: #23395f; border: 0; border-radius: 14px; cursor: pointer; }
+  .keypad.k4 { grid-template-columns: repeat(4, 104px); }
+  .key:active { background: #33507f; } .key.back { grid-column: span 2; }
+  .fillcol { display: flex; flex-direction: column; align-items: center; gap: 22px; }
+  .tip { color: #9aa5b8; font-size: 28px; }
+  .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; }
+  .choice { width: 520px; height: 120px; font: 500 58px "PiFix", "Avenir Next", sans-serif; color: #fff; background: #1c2f50;
+    border: 4px solid #3a5079; border-radius: 22px; display: flex; align-items: center; gap: 30px; padding: 0 34px; cursor: pointer; }
+  .choice.sel { border-color: #ffd166; background: #26406b; }
+  .letter { display: inline-flex; width: 64px; height: 64px; border-radius: 50%; background: #9aa5b8; color: #0f1b2d;
+    font-size: 36px; font-weight: 700; align-items: center; justify-content: center; }
+  .choice.sel .letter { background: #ffd166; }
+  .feedback { min-height: 60px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .msg { font-size: 36px; font-weight: 600; text-align: center; max-width: 1500px; white-space: normal; }
+  .good { color: #06d6a0; font-size: 56px; } .bad { color: #ef476f; } .warn { color: #9aa5b8; }
+  .steps { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+  .stepline { font-size: 54px; opacity: 0; animation: stepin 0.6s forwards; }
+  .steps.many .stepline { font-size: 46px; }
+  .stepline .note { color: #06d6a0; font-size: 32px; margin-left: 40px; }
+  @keyframes stepin { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  .shake { animation: shake 0.45s; }
+  @keyframes shake { 20%, 60% { transform: translateX(-14px); } 40%, 80% { transform: translateX(14px); } }
+  .actions { display: flex; gap: 28px; margin-top: auto; }
+  a.btn { text-decoration: none; display: inline-block; }
+  .btn { font: 700 40px "PiFix", "Avenir Next", sans-serif; padding: 20px 52px; border-radius: 20px; border: 0; cursor: pointer;
+    background: #ffd166; color: #0f1b2d; }
+  .btn.go { background: #06d6a0; } .btn.ghost { background: transparent; color: #fff; border: 3px solid #9aa5b8; }
+  #controls { right: 34px; bottom: 28px; display: none; gap: 16px; z-index: 5; }
+  #controls button { width: 78px; height: 78px; border-radius: 50%; border: 0; background: rgba(255,255,255,0.12);
+    color: #fff; font-size: 30px; cursor: pointer; }
+  #progress { top: 18px; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 5; }
+  .dots { display: flex; gap: 12px; }
+  .dot { width: 26px; height: 26px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; background: rgba(255,255,255,0.35); }
+  .dot:hover { transform: scale(1.25); }
+  .dot.k-quiz, .dot.k-summary { background: rgba(255,209,102,0.4); border-radius: 6px; }
+  .dot.done { background: #9aa5b8; } .dot.k-quiz.done { background: #ffd166; }
+  .dot.now { box-shadow: 0 0 0 5px #06d6a0; }
+  .steplabel { font-size: 24px; color: #9aa5b8; }
+  .scenebar { width: 360px; height: 5px; border-radius: 3px; background: rgba(255,255,255,0.12); overflow: hidden; }
+  #scenefill { height: 100%; width: 0; background: #06d6a0; }
+  #start { inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 34px; z-index: 10;
+    background: radial-gradient(ellipse at 50% 35%, #1a3159 0%, #0f1b2d 70%); }
+  #quiz, #summary { overflow-y: auto; overscroll-behavior: contain; }
+  #quiz > *, #summary > * { flex-shrink: 0; }
+  .sumtitle { font-size: 80px; font-weight: 700; }
+  .score { font-size: 48px; color: #ffd166; } .score b { font-size: 64px; }
+  .sumtable { border-collapse: collapse; font-size: 30px; }
+  .sumtable td:nth-child(2) { white-space: nowrap; }
+  .sumtable td, .sumtable th { padding: 6px 24px; border-bottom: 1px solid #2a3f63; text-align: left; }
+  .sumtable th { color: #9aa5b8; font-weight: 500; }
+  .ok { color: #06d6a0; font-weight: 700; } .meh { color: #ffd166; } .no { color: #ef476f; font-weight: 700; }
+  .ans { color: #9aa5b8; }
+  .home { position: absolute; top: 40px; left: 50px; color: #9aa5b8; font-size: 34px; text-decoration: none; }
+  .home:hover { color: #fff; }
+  .frac { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; line-height: 1.05; margin: 0 0.08em; }
+  .frac .fb { align-self: stretch; height: 0.07em; min-height: 3px; margin: 0.06em -0.08em; border-radius: 0.04em; }
+  #vid { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; display: none; background: #0f1b2d; }

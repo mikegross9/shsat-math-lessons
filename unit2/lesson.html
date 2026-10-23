@@ -1,0 +1,305 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><title>Unit 2 · Turning Words into Equations</title>
+<link rel="stylesheet" href="../lesson.css">
+<style>
+  /* Unit 2 only. Word problems are long: put the four choices in one row under a long question. */
+  .qtext.long ~ .answer .choices { grid-template-columns: repeat(4, auto); gap: 22px; }
+  .qtext.long ~ .answer .choice { width: 330px; height: 100px; font-size: 48px; padding: 0 26px; }
+  .withfig .choices { grid-template-columns: 1fr 1fr !important; }
+  .qtext.long:has(+ .answer.withfig) { font-size: 38px; line-height: 1.25; }
+  .qfig svg { max-height: 330px; width: auto; }
+  /* Choices: keep "3x − 7" together (the shared flex layout puts a gap around the colored x). */
+  .choice { display: block; text-align: left; line-height: 112px; }
+  .choice .letter { display: inline-flex; vertical-align: middle; margin-right: 30px; line-height: 64px; position: relative; top: -4px; }
+  .qtext.long ~ .answer .choice { line-height: 92px; }
+  .qtext.long ~ .answer .choice .letter { margin-right: 22px; }
+  .withfig .choice { line-height: 96px; }
+  /* The score table: 13 questions, one line each. */
+  #summary { gap: 18px; padding-top: 112px; }
+  .sumtitle { font-size: 64px; }
+  .sumtable { table-layout: fixed; width: 1620px; font-size: 24px; }
+  .sumtable th:nth-child(1) { width: 1010px; } .sumtable th:nth-child(2) { width: 150px; }
+  .sumtable td, .sumtable th { padding: 3px 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wcard { text-align: left; white-space: normal; line-height: 1.32; }
+</style></head>
+<body data-unit="unit2"><div id="stage"></div>
+<script src="lesson-data.js"></script>
+<script src="../engine.js"></script>
+<script>
+
+// A plain box with text in it (bar models, chains).
+const tile = (html, w, h, color, o = {}) =>
+  `<div class="box" style="width:${w}px;height:${h}px;border-color:${color};color:${o.fg || color};background:${o.bg || "transparent"};font-size:${o.size || 52}px;font-weight:600">${html}</div>`;
+const arrowR = (w = 80, color = "#fff") =>
+  `<svg width="${w}" height="40"><path d="M6 20 H${w - 12} M${w - 26} 6 L${w - 10} 20 L${w - 26} 34" stroke="${color}" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const boxOf = (a, b) => ({ l: Math.min(a.l, b.l), r: Math.max(a.r, b.r), t: Math.min(a.t, b.t), b: Math.max(a.b, b.b),
+  cx: (Math.min(a.l, b.l) + Math.max(a.r, b.r)) / 2, cy: (Math.min(a.t, b.t) + Math.max(a.b, b.b)) / 2,
+  w: Math.max(a.r, b.r) - Math.min(a.l, b.l), h: Math.max(a.b, b.b) - Math.min(a.t, b.t) });
+
+function build() {
+
+scene("S1Title", s => {
+  const t0 = s.c(0);
+  s.text("UNIT 2", CX, 300, 44, { color: C.op, weight: 700, style: { letterSpacing: "0.3em" } }).fadeIn(t0);
+  s.text("Turning Words into Equations", CX, 410, 112, { weight: 700 }).write(t0 + 0.3, 1.5);
+  s.text("SHSAT Math with Victoria", CX, 520, 48, { color: C.dim }).fadeIn(t0 + 1.8);
+  const stat = s.text(`Practice tests: <b style="color:${C.neg}">6 of 8</b> algebra word problems missed`, CX, 740, 50, { color: C.dim });
+  stat.fadeIn(s.c(1)); stat.fadeOut(s.c(2));
+  const t2 = s.c(2) + 0.3;
+  const xs = [560, 960, 1360];
+  const tiles = [["Words", "#fff"], ["Equation", C.x], ["Answer", C.op]].map(([l, c], i) => s.add(tile(l, 300, 120, c, { size: 50 }), xs[i], 740));
+  const arr = [760, 1160].map(x => s.add(arrowR(70), x, 740));
+  [tiles[0], arr[0], tiles[1], arr[1], tiles[2]].forEach((it, i) => it.fadeIn(t2 + i * 0.45, 0.5, 0));
+});
+
+scene("S2Translate", s => {
+  s.text("Your math dictionary", CX, 170, 66, { weight: 700 }).fadeIn(s.c(0));
+  s.text("words", 900, 250, 34, { color: C.dim, ax: 1 }).fadeIn(s.c(0) + 0.4);
+  s.text("math", 1040, 250, 34, { color: C.dim, ax: 0 }).fadeIn(s.c(0) + 0.4);
+  const rows = [
+    ["the number you don't know", "x", ""],
+    ["5 more than x", "x + 5", ""],
+    ["5 less than x", "x − 5", "not 5 − x"],
+    ["3 times as many as x", "3x", ""],
+    ["5 years older  ·  8 years ago", "+ 5   ·   − 8", "not × 5"],
+    ["total, sum, together", "add them up", ""],
+    ["is, will be, equals", "=", ""],
+  ];
+  rows.forEach(([w, mth, note], i) => {
+    const y = 330 + i * 98, t = s.c(i + 1);
+    s.text(m(w), 900, y, 48, { ax: 1 }).fadeIn(t, 0.5, 0);
+    s.text("→", 970, y, 48, { color: C.dim }).fadeIn(t + 0.3, 0.4, 0);
+    const math = s.text(mth === "add them up" ? `<span style="color:${C.op}">+ + +</span>` : m(mth), 1040, y, 60, { ax: 0, weight: 600, color: mth === "=" ? C.op : "#fff" });
+    math.fadeIn(t + 0.5, 0.5, 0);
+    if (note) s.text(m(note), 1420, y, 44, { ax: 0, color: C.neg, weight: 600 }).pop(t + 1.6);
+  });
+});
+
+scene("S3Total", s => {
+  s.text("Write everyone in terms of one person", CX, 170, 58, { weight: 700 }).fadeIn(s.c(0));
+  const p1 = s.text(`Three friends split <b>$70</b>. Bo gets twice what Cy gets.`, CX, 170, 46, { color: "#dfe6f0" });
+  const p2 = s.text(`Al gets $10 more than Bo. How much does <b style="color:${C.x}">Al</b> get?`, CX, 235, 46, { color: "#dfe6f0" });
+  // the heading makes room for the story
+  const t1 = s.c(1);
+  s.items[0].fadeOut(t1, 0.3);
+  p1.fadeIn(t1 + 0.3); p2.fadeIn(t1 + 0.9);
+
+  const BW = 150, BH = 84, X0 = 270, rowsY = [370, 480, 590];
+  const xBox = (cx, y) => s.add(tile(`<i>x</i>`, BW, BH, C.x, { bg: "rgba(255,209,102,0.16)", size: 54 }), cx, y);
+  const names = ["Cy", "Bo", "Al"].map((n, i) => s.text(n, 230, rowsY[i], 54, { ax: 1, weight: 600 }));
+  const cx0 = X0 + BW / 2, cx1 = cx0 + BW + 8;
+  const cy = [xBox(cx0, rowsY[0])];
+  const bo = [xBox(cx0, rowsY[1]), xBox(cx1, rowsY[1])];
+  const al = [xBox(cx0, rowsY[2]), xBox(cx1, rowsY[2])];
+  const ten = s.add(tile("10", 104, BH, C.op, { bg: "rgba(6,214,160,0.16)", size: 50 }), cx1 + BW / 2 + 8 + 52, rowsY[2]);
+  const exprs = ["x", "2x", "2x + 10"].map((e, i) => s.text(m(e), 780, rowsY[i], 58, { ax: 0, weight: 600 }));
+
+  const t2 = s.c(2);
+  names[0].fadeIn(t2); cy[0].pop(t2 + 0.3); exprs[0].fadeIn(t2 + 0.9);
+  const t3 = s.c(3);
+  names[1].fadeIn(t3); bo.forEach((b, i) => b.pop(t3 + 0.3 + i * 0.3)); exprs[1].fadeIn(t3 + 1.0);
+  const t4 = s.c(4);
+  names[2].fadeIn(t4); al.forEach((b, i) => b.pop(t4 + 0.3 + i * 0.3)); ten.pop(t4 + 1.0); exprs[2].fadeIn(t4 + 1.5);
+
+  const t5 = s.c(5);
+  const brace = s.add(`<svg width="60" height="320"><path d="M8 8 Q40 8 40 40 V130 Q40 160 56 160 Q40 160 40 190 V280 Q40 312 8 312" stroke="${C.dim}" stroke-width="5" fill="none" stroke-linecap="round"/></svg>`, 1060, 480);
+  const tot = s.text(`<span style="color:${C.dim}">total</span> <b>$70</b>`, 1110, 480, 60, { ax: 0 });
+  brace.fadeIn(t5, 0.5, 0); tot.fadeIn(t5 + 0.3, 0.5, 0);
+  const EX = 800;
+  const e1 = s.eq("x + 2x + 2x + 10 = 70", EX, 730, 72); e1.fadeIn(t5 + 1.2);
+  const e2 = s.eq("5x + 10 = 70", EX, 835, 72); e2.fadeIn(s.c(6));
+  const e3 = s.eq("x = 12", EX, 940, 72); e3.fadeIn(s.c(7));
+  s.text(m("5x = 60, so"), e3.L().l - 40, 940, 44, { ax: 1, color: C.dim }).fadeIn(s.c(7));
+
+  const t8 = s.c(8);
+  s.ring(exprs[2].rect(), C.neg, 14).pop(t8);
+  s.text("They asked for Al!", 1500, 760, 48, { color: C.neg, weight: 700 }).fadeIn(t8 + 0.2);
+  s.text(m("Al = 2(12) + 10"), 1500, 855, 58).fadeIn(s.c(9));
+  const ans = s.text("= $34", 1500, 945, 66, { color: C.x, weight: 700 });
+  ans.fadeIn(s.c(10));
+  s.ring(ans.rect(), C.x, 16).pop(s.c(10) + 0.5);
+});
+
+scene("S4Consecutive", s => {
+  s.text("Consecutive integers", CX, 170, 66, { weight: 700 }).fadeIn(s.c(0));
+  const LY = 420, X = n => 300 + (n - 13) * 220;
+  const line = s.add(`<svg width="1560" height="40"><path d="M10 20 H1550 M28 4 L8 20 L28 36 M1532 4 L1552 20 L1532 36" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`, CX, LY);
+  const ticks = [], nums = [];
+  for (let n = 13; n <= 19; n++) {
+    ticks.push(s.add(`<div style="width:5px;height:34px;background:#fff;border-radius:3px"></div>`, X(n), LY));
+    nums.push(s.text(String(n), X(n), LY + 60, 48, { color: n >= 15 && n <= 17 ? "#fff" : C.dim }));
+  }
+  const dots = [15, 16, 17].map(n => s.add(`<div style="width:34px;height:34px;border-radius:50%;background:${C.x}"></div>`, X(n), LY));
+  const t0 = s.c(0);
+  line.fadeIn(t0 + 0.3, 0.5, 0); ticks.forEach((t, i) => t.fadeIn(t0 + 0.4 + i * 0.05, 0.3, 0)); nums.forEach((t, i) => t.fadeIn(t0 + 0.5 + i * 0.05, 0.3, 0));
+  dots.forEach((d, i) => d.pop(t0 + 1.4 + i * 0.4));
+  const arc = (a, t) => {
+    const g = s.add(`<svg width="220" height="70"><path d="M14 8 Q110 78 206 8 M188 6 L207 8 L200 26" stroke="${C.op}" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`, (X(a) + X(a + 1)) / 2, LY + 125);
+    const p = s.text("+1", (X(a) + X(a + 1)) / 2, LY + 185, 40, { color: C.op, weight: 700 });
+    g.fadeIn(t, 0.5, 0); p.fadeIn(t + 0.2, 0.5, 0);
+  };
+  const labs = ["x", "x + 1", "x + 2"].map((l, i) => s.text(m(l), X(15 + i), LY - 85, 60, { weight: 600 }));
+  labs[0].pop(s.c(1));
+  arc(15, s.c(1) + 0.8); labs[1].pop(s.c(2));
+  arc(16, s.c(2) + 0.6); labs[2].pop(s.c(3));
+  const t4 = s.c(4);
+  s.text(`<span style="color:${C.dim}">odd or even:</span>&nbsp;&nbsp; ${["x", "x + 2", "x + 4"].map(m).join(",&nbsp;&nbsp; ")}`, CX, 700, 58, { weight: 500 }).fadeIn(t4);
+  s.text("like 15, 17, 19  or  16, 18, 20", CX, 770, 40, { color: C.dim }).fadeIn(t4 + 1.5);
+  s.eq("x + (x + 1) + (x + 2) = 3x + 3", CX, 865, 64).fadeIn(s.c(5));
+  s.text(`${m("x")} is the <b>smallest</b>. Answer what they asked!`, CX, 958, 50, { color: C.neg, weight: 600 }).fadeIn(s.c(6));
+});
+
+scene("S5Rate", s => {
+  s.text(`“Per” and “each” mean <span style="color:${C.op}">×</span>`, CX, 170, 66, { weight: 700 }).fadeIn(s.c(0));
+  s.text(`30 students, 50 books each:&nbsp; 30 <span style="color:${C.op}">×</span> 50 = <b>1,500</b> books`, CX, 290, 54).fadeIn(s.c(1));
+  const card = s.text(`amount = <span style="color:${C.op}">start</span> + <span style="color:${C.x}">rate</span> × <span style="color:${C.y}">number</span>`, CX, 425, 64, { weight: 600,
+    style: { border: `4px solid ${C.dim}`, borderRadius: "22px", padding: "18px 50px" } });
+  card.pop(s.c(2));
+  s.text("200 gallons, fills 15 gallons per minute", 1000, 570, 46, { ax: 1, color: "#dfe6f0" }).fadeIn(s.c(3));
+  s.text("→", 1060, 570, 48, { color: C.dim }).fadeIn(s.c(4));
+  s.text(`<span style="color:${C.op}">200</span> + <span style="color:${C.x}">15</span><span style="color:${C.y};font-style:italic">m</span>`, 1120, 570, 62, { ax: 0, weight: 600 }).fadeIn(s.c(4) + 1.4);
+  s.text("ball drops 1.2 feet per second", 1000, 680, 46, { ax: 1, color: "#dfe6f0" }).fadeIn(s.c(5) + 1.2);
+  s.text("→", 1060, 680, 48, { color: C.dim }).fadeIn(s.c(6));
+  s.text(`<span style="color:${C.op}">90</span> <span style="color:${C.neg}">−</span> <span style="color:${C.x}">1.2</span><span style="color:${C.y};font-style:italic">t</span>`, 1120, 680, 62, { ax: 0, weight: 600 }).fadeIn(s.c(6) + 0.2);
+  s.text("goes down? subtract", 1420, 680, 40, { ax: 0, color: C.neg, weight: 600 }).fadeIn(s.c(6) + 0.8);
+  s.text("“When will they be the same?”", CX, 820, 54, { color: C.x, weight: 600 }).fadeIn(s.c(7));
+  const eqx = s.text(`one expression <span style="color:${C.op}">=</span> the other expression`, CX, 930, 58, { weight: 600 });
+  eqx.fadeIn(s.c(8));
+  s.ring(eqx.rect(), C.op, 16).pop(s.c(8) + 1.2);
+});
+
+function card17(s, x, y, scale = 1, show = false) {
+  const html = `<div class="card wcard" style="width:1480px;box-sizing:border-box;padding:34px 60px">` +
+    `<div style="font-size:36px;color:${C.dim};margin-bottom:16px">Practice Test 2 · Question 17</div>` +
+    `<div style="font-size:50px">Tamara’s salary is $26,000. Mark’s salary is $23,200. At the end of each year, Tamara is given a $500 raise and Mark is given a $900 raise. ` +
+    `After how many years will Mark and Tamara be earning <span class="same">the same amount</span>?</div></div>`;
+  const it = s.add(html, x, y, { show });
+  it.base.scale = scale;
+  it.apply(it.base);
+  return it;
+}
+
+scene("S6Question", s => {
+  s.text("Your real question", CX, 165, 56, { color: C.x, weight: 700 }).fadeIn(s.c(0));
+  card17(s, CX, 440).fadeIn(s.c(0) + 0.3);
+  s.text(`<span style="color:${C.dim}">Your answer:</span> <b style="color:${C.neg}">6 ✗</b> <span style="display:inline-block;width:90px"></span><span style="color:${C.dim}">Time:</span> <b style="color:${C.neg}">4 min 19 sec</b>`, CX, 735, 54).fadeIn(s.c(1));
+  s.text(`<span style="color:${C.dim}">Year-by-year table:</span> <b style="color:${C.neg}">slow, and one slip throws it off</b>`, CX, 845, 48).fadeIn(s.c(2));
+  s.text(`<span style="color:${C.dim}">Goal:</span> <b style="color:${C.op}">one equation, under 2 minutes</b>`, CX, 945, 56).pop(s.c(3));
+});
+
+scene("S7Setup", s => {
+  const card = card17(s, 1480, 228, 0.44, true);
+  s.badge(1, "Name it", 90, 250).fadeIn(s.c(0));
+  s.text(`${m("x")} = number of years`, 470, 250, 60, { ax: 0, weight: 500 }).fadeIn(s.c(0) + 1.0);
+
+  s.badge(2, "Translate", 90, 400).fadeIn(s.c(1));
+  const NX = 700;
+  const tName = s.text("Tamara:", NX, 400, 56, { ax: 1, color: C.dim });
+  const tExp = s.text(`<span style="color:${C.op}">26,000</span> + <span style="color:${C.x}">500</span>${m("x")}`, NX + 30, 400, 66, { ax: 0, weight: 600 });
+  tName.fadeIn(s.c(1) + 0.4); tExp.fadeIn(s.c(2));
+  const mName = s.text("Mark:", NX, 505, 56, { ax: 1, color: C.dim });
+  const mExp = s.text(`<span style="color:${C.op}">23,200</span> + <span style="color:${C.x}">900</span>${m("x")}`, NX + 30, 505, 66, { ax: 0, weight: 600 });
+  mName.fadeIn(s.c(3)); mExp.fadeIn(s.c(4));
+  const k1 = s.text(`<span style="color:${C.op}">start</span> + <span style="color:${C.x}">raise per year</span> × years`, NX + 30, 578, 38, { ax: 0, color: C.dim });
+  k1.fadeIn(s.c(4) + 1.6);
+
+  s.badge(3, "Find what's equal", 90, 690).fadeIn(s.c(5));
+  const same = card.rect(".same");
+  s.ring(same, C.x, 8).pop(s.c(5) + 0.8);
+  s.text(`“the same amount”&nbsp; → &nbsp;<span style="color:${C.op}">=</span>`, 640, 690, 50, { ax: 0, color: C.x }).fadeIn(s.c(6));
+  const e = s.eq("26,000 + 500x = 23,200 + 900x", CX, 828, 74);
+  e.fadeIn(s.c(6) + 1.5);
+  s.text("Tamara", e.L().cx, 942, 38, { color: C.dim }).fadeIn(s.c(6) + 2.2);
+  s.text("Mark", e.R().cx, 942, 38, { color: C.dim }).fadeIn(s.c(6) + 2.2);
+  const L = e.L(), R = e.R();
+  s.ring({ cx: (L.l + R.r) / 2, cy: L.cy, w: R.r - L.l, h: L.h }, C.x, 22).pop(s.c(7));
+});
+
+scene("S8Solve", s => {
+  s.badge(4, "Solve", 90, 200).fadeIn(s.c(0));
+  const e0 = s.eq("26,000 + 500x = 23,200 + 900x", CX, 200, 72); e0.fadeIn(s.c(0) + 0.4);
+  s.ops(e0, "− 500x", "− 500x", 300).forEach(it => it.fadeIn(s.c(1)));
+  const e1 = s.eq("26,000 = 23,200 + 400x", CX, 400, 72); e1.fadeIn(s.c(2));
+  s.ops(e1, "− 23,200", "− 23,200", 500).forEach(it => it.fadeIn(s.c(3)));
+  const e2 = s.eq("2,800 = 400x", CX, 600, 72); e2.fadeIn(s.c(4));
+  s.ops(e2, "÷ 400", "÷ 400", 700).forEach(it => it.fadeIn(s.c(5)));
+  const e3 = s.eq("7 = x", CX, 800, 72); e3.fadeIn(s.c(6));
+  const L = e3.L(), R = e3.R();
+  s.ring({ cx: (L.l + R.r) / 2, cy: L.cy, w: R.r - L.l, h: L.h }, C.x, 22).pop(s.c(6) + 0.6);
+  s.text("They earn the same after 7 years.", CX, 930, 54, { color: C.op, weight: 700 }).fadeIn(s.c(6) + 1.4);
+});
+
+scene("S9Check", s => {
+  const top = s.eq("x = 7", CX, 192, 72, { show: true });
+  const L = top.L(), R = top.R();
+  s.add(`<div style="width:${R.r - L.l + 44}px;height:${L.h + 40}px;border:5px solid ${C.x};border-radius:18px"></div>`, (L.l + R.r) / 2, L.cy, { show: true });
+  s.badge(5, "Check it against the story", 560, 318).fadeIn(s.c(0));
+  const EX = 1180;
+  s.text("Tamara", 560, 440, 50, { ax: 1, color: C.dim }).fadeIn(s.c(1));
+  const r1 = s.eq("26,000 + 500(7) = 29,500", EX, 440, 68); r1.write(s.c(1) + 0.4, 1.6);
+  s.text("Mark", 560, 550, 50, { ax: 1, color: C.dim }).fadeIn(s.c(2));
+  const r2 = s.eq("23,200 + 900(7) = 29,500", EX, 550, 68); r2.write(s.c(2) + 0.4, 1.6);
+  const both = boxOf(r1.L(), r2.R());
+  s.ring(both, C.op, 20).pop(s.c(3));
+  s.text("✓ same", both.r + 60, both.cy, 54, { ax: 0, color: C.op, weight: 700 }).pop(s.c(3) + 0.3);
+  s.text(`<span style="color:${C.dim}">Your answer, 6:</span>&nbsp; Tamara 29,000 &nbsp;·&nbsp; Mark 28,600 &nbsp;<b style="color:${C.neg}">✗ not equal</b>`, CX, 720, 50).fadeIn(s.c(4));
+  s.text("Adaptive SHSAT: no going back in Math. Check before you move on.", CX, 900, 46, { color: C.neg, weight: 600 }).fadeIn(s.c(5));
+});
+
+scene("S10Plug", s => {
+  s.text("Plug in the answer choices", CX, 170, 66, { weight: 700 }).fadeIn(s.c(0));
+  const t1 = s.c(1);
+  s.items[0].fadeOut(t1, 0.3);
+  s.text(`Today, Mia is ⅓ of her aunt's age. In 6 years, she'll be ½ of her aunt's age.`, CX, 170, 46, { color: "#dfe6f0" }).fadeIn(t1 + 0.3);
+  s.text(`How old is Mia now?`, 520, 255, 46, { color: "#dfe6f0" }).fadeIn(t1 + 0.9);
+  const ch = ["3", "4", "6", "9"].map((v, i) => s.add(`<span class="letter" style="width:52px;height:52px;font-size:30px">${"ABCD"[i]}</span><span style="font-size:50px;margin-left:16px">${v}</span>`,
+    900 + i * 220, 255, { ax: 0, style: { display: "flex", alignItems: "center" } }));
+  ch.forEach((c, i) => c.fadeIn(t1 + 1.3 + i * 0.2, 0.4, 0));
+
+  const cols = [330, 650, 990, 1330, 1660];
+  const heads = ["Mia now", "Aunt now", "Mia + 6", "Aunt + 6", "Half?"].map((h, i) => s.text(h, cols[i], 400, 40, { color: C.dim }));
+  heads.forEach(it => it.fadeIn(s.c(2)));
+  [s.c(4), s.c(9)].forEach(t => [heads[2], heads[3]].forEach(it => it.tw(t, 0.3, { opacity: 1 }).pulse(t, 1.3)));
+  const hr = s.add(`<div style="width:1560px;height:3px;background:#3a5079"></div>`, CX, 440); hr.fadeIn(s.c(2));
+  const cell = (v, i, y, t) => s.text(v, cols[i], y, 64, { weight: 600, color: i === 0 ? C.x : "#fff" }).fadeIn(t, 0.4, 0);
+  cell("4", 0, 520, s.c(2)); cell("12", 1, 520, s.c(3)); cell("10", 2, 520, s.c(5)); cell("18", 3, 520, s.c(5) + 0.6);
+  s.text(`<b style="color:${C.neg}">✗</b>`, cols[4], 520, 64).pop(s.c(6));
+  s.add(`<div style="width:120px;height:6px;background:${C.neg};border-radius:3px;transform:rotate(-12deg)"></div>`, ch[1].rect().cx, 255).pop(s.c(6) + 0.8);
+  cell("6", 0, 640, s.c(7)); cell("18", 1, 640, s.c(8)); cell("12", 2, 640, s.c(10)); cell("24", 3, 640, s.c(10) + 0.6);
+  const t4 = s.c(11);
+  s.text(`<b style="color:${C.op}">✓</b>`, cols[4], 640, 64).pop(t4);
+  s.ring(ch[2].rect(), C.op, 12).pop(t4 + 0.4);
+  s.ring({ cx: CX, cy: 640, w: 1560, h: 70, l: 0, r: 0, t: 0, b: 0 }, C.op, 18).pop(t4 + 0.6);
+  s.text(`Age problems: add the years to <b>everybody</b>.`, CX, 820, 52, { color: C.x }).fadeIn(s.c(12));
+  s.text(`Start with a middle choice.`, CX, 920, 52, { color: C.op, weight: 600 }).fadeIn(s.c(13));
+});
+scene("S11Recap", s => {
+  s.text("The recipe", CX, 165, 76, { weight: 700 }).fadeIn(s.c(0));
+  const lines = [
+    [290, "Name the unknown: the one everyone is compared to."],
+    [410, "Translate one sentence at a time."],
+    [580, "Find what's equal (a total, the same amount). Solve."],
+    [700, "Answer what they asked. Check it against the story."],
+  ];
+  lines.forEach(([y, l], i) => s.badge(i + 1, `<span style="color:#fff;font-weight:500">${esc(l)}</span>`, 300, y, { size: 48 }).fadeIn(s.c(i + 1), 0.6, 0).set(s.c(i + 1), { sx: -30 }).tw(s.c(i + 1), 0.6, { sx: 0 }));
+  s.text(`more than <b style="color:${C.op}">+</b> &nbsp;·&nbsp; less than <b style="color:${C.neg}">flips</b> &nbsp;·&nbsp; per, each <b style="color:${C.op}">×</b> &nbsp;·&nbsp; is <b style="color:${C.op}">=</b>`,
+    392, 482, 38, { ax: 0, color: C.dim }).fadeIn(s.c(2) + 1.5);
+  s.text("Multiple choice? Plug in the answers.", CX, 830, 52, { color: C.x, weight: 600 }).fadeIn(s.c(5));
+  s.text("Next: Workbook Unit 2 practice.  You've got this!", CX, 930, 54, { color: C.op, weight: 700 }).pop(s.c(5) + 2.5);
+});
+
+}
+
+</script>
+<script>
+// Unit 2 only: let an expression answer like "x+-3" count as x − 3 (the QA script and some students type it that way).
+document.addEventListener("load", e => {
+  if (e.target.tagName === "SCRIPT" && /player\.js$/.test(e.target.src) && typeof parseLinear === "function" && !parseLinear.u2) {
+    const orig = parseLinear;
+    window.parseLinear = (str, v) => orig(String(str).replace(/\+\s*([−–—-])/g, "$1"), v);
+    window.parseLinear.u2 = true;
+  }
+}, true);
+</script>
+<script src="../boot.js"></script>
+</body></html>
