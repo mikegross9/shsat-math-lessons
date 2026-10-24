@@ -344,6 +344,7 @@ function save(extra) {
     const all = JSON.parse(localStorage.getItem(STORE) || "[]");
     let run = all.find(x => x.started === startedAt);
     if (!run) { run = { started: startedAt }; all.push(run); }
+    if (runDevice) run.device = runDevice;
     Object.assign(run, { unit: L.unit.num, results, step: Math.max(run.step || 0, step + 1), steps: L.flow.length, updated: new Date().toISOString() }, extra || {});
     localStorage.setItem(STORE, JSON.stringify(all.slice(-50)));
     if (window.Progress) Progress.sync(L.unit.num, run);
@@ -380,13 +381,36 @@ function showSummary(d) {
 }
 
 // ---------- start ----------
+let runDevice = null;   // the device a resumed attempt was started on, so it stays one attempt across devices
 function start() {
   unlockMedia();
   startedAt = new Date().toISOString();
   $("#start").style.display = "none";
   go(0);
 }
+// Continue where she left off: the latest unfinished attempt at this unit, from any device.
+function resume(run) {
+  unlockMedia();
+  startedAt = run.started;
+  runDevice = run.device || null;
+  Object.assign(results, run.results || {});
+  $("#start").style.display = "none";
+  go(Math.min(Math.max((run.step || 1) - 1, 0), L.flow.length - 1));
+}
 $("#startBtn").onclick = start;
+if (window.Progress) Progress.allRuns().then(({ runs }) => {
+  const mine = runs.filter(r => r.unit === L.unit.num);
+  const last = mine[0];
+  if (!last || last.summary || !(last.step > 1)) return;
+  const b = $("#resumeBtn");
+  b.style.display = "inline-block";
+  b.textContent = `Continue: part ${Math.min(last.step, L.flow.length)} of ${L.flow.length} ▸`;
+  b.onclick = () => resume(last);
+  $("#startBtn").textContent = "Start over";
+  $("#startBtn").style.fontSize = "44px";
+  const when = new Date(last.updated || last.started).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+  const n = $("#resumeNote"); n.style.display = "block"; n.textContent = `You stopped here on ${when}.`;
+}).catch(() => {});
 $("#pause").onclick = togglePause;
 $("#replay").onclick = replay;
 $("#skip").onclick = () => { if (cur) { const d = cur.done; stopScene(); d(); } };

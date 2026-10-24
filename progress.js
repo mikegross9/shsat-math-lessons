@@ -32,7 +32,13 @@
   const pending = {};
   function sync(unit, run) {
     if (!URL_() || !run || !run.started) return;
-    run.device = run.device || deviceId();
+    if (!run.device) {
+      run.device = deviceId();
+      try {   // remember it on the local copy too, so this attempt keeps one id
+        const all = JSON.parse(localStorage.getItem(key(unit)) || "[]");
+        const r = all.find(x => x.started === run.started); if (r && !r.device) { r.device = run.device; localStorage.setItem(key(unit), JSON.stringify(all)); }
+      } catch {}
+    }
     const id = run.started + "|" + run.device;
     clearTimeout(pending[id]);
     pending[id] = setTimeout(() => {

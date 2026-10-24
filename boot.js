@@ -22,7 +22,11 @@
         <div style="color:#06d6a0;font-size:44px;font-weight:700;letter-spacing:0.3em">UNIT ${U.num}</div>
         <div style="font-size:${U.title.length > 22 ? 96 : 120}px;font-weight:700;text-align:center;white-space:normal;max-width:1700px">${U.title}</div>
         <div style="color:#9aa5b8;font-size:40px">Short lessons, then your turn. About ${U.minutes} minutes. Sound on!</div>
-        <button class="btn go" id="startBtn" style="font-size:56px;padding:28px 90px;margin-top:30px">Start ▸</button>
+        <div style="display:flex;gap:28px;flex-wrap:wrap;justify-content:center;margin-top:30px">
+          <button class="btn go" id="resumeBtn" style="font-size:52px;padding:28px 70px;display:none">Continue ▸</button>
+          <button class="btn go" id="startBtn" style="font-size:56px;padding:28px 90px">Start ▸</button>
+        </div>
+        <div id="resumeNote" style="color:#9aa5b8;font-size:34px;display:none"></div>
       </div>`;
     stage.prepend(ui);
     document.body.classList.add("play");
