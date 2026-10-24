@@ -75,6 +75,7 @@ function progress() {
 
 function go(i) {
   step = i;
+  if (startedAt) save();
   stopScene(); stopVoice();
   $("#quiz").style.display = "none";
   $("#summary").style.display = "none";
@@ -337,12 +338,15 @@ function renderQuestion(block, qi, next) {
 }
 
 // ---------- results ----------
-function save() {
+// Every attempt is saved as a "run" (local first; progress.js also syncs it online when that's set up).
+function save(extra) {
   try {
     const all = JSON.parse(localStorage.getItem(STORE) || "[]");
-    const run = all.find(x => x.started === startedAt) || (all.push({ started: startedAt }), all[all.length - 1]);
-    run.results = results;
-    localStorage.setItem(STORE, JSON.stringify(all.slice(-20)));
+    let run = all.find(x => x.started === startedAt);
+    if (!run) { run = { started: startedAt }; all.push(run); }
+    Object.assign(run, { unit: L.unit.num, results, step: Math.max(run.step || 0, step + 1), steps: L.flow.length, updated: new Date().toISOString() }, extra || {});
+    localStorage.setItem(STORE, JSON.stringify(all.slice(-50)));
+    if (window.Progress) Progress.sync(L.unit.num, run);
   } catch {}
 }
 let startedAt = null;
@@ -360,11 +364,10 @@ function showSummary(d) {
   box.innerHTML = `<div class="sumtitle">Unit ${L.unit.num} complete!</div>
     <div class="score"><b>${first}</b> of ${ids.length} right on the first try</div>
     <table class="sumtable"><tr><th>Question</th><th></th><th>Your answers</th></tr>${rows}</table>
-    <div class="actions"><a class="btn ghost" href="../index.html">All units</a><button class="btn ghost" id="again">Start over</button><button class="btn" id="redo">Retry the ones I missed</button>${L.unit.next ? `<a class="btn go" href="../${L.unit.next}/lesson.html">Next unit ▸</a>` : ""}</div>`;
+    <div class="actions"><a class="btn ghost" href="../index.html">All units</a><a class="btn ghost" href="../progress.html">My progress</a><button class="btn ghost" id="again">Start over</button><button class="btn" id="redo">Retry the ones I missed</button>${L.unit.next ? `<a class="btn go" href="../${L.unit.next}/lesson.html">Next unit ▸</a>` : ""}</div>`;
   try {
     const all = JSON.parse(localStorage.getItem(STORE) || "[]");
-    const run = all.find(x => x.started === startedAt);
-    if (run) { run.summary = { first, total: ids.length, finished: new Date().toISOString() }; localStorage.setItem(STORE, JSON.stringify(all)); }
+    save({ summary: { first, total: ids.length, finished: new Date().toISOString() } });
   } catch {}
   $("#again").onclick = () => location.reload();
   const missed = ids.filter(id => !results[id]?.first);

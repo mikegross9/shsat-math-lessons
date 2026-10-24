@@ -1,0 +1,185 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Progress · SHSAT Math</title>
+<style>
+  :root { --bg: #0f1b2d; --card: #17284a; --line: #2a3f63; --text: #fff; --dim: #9aa5b8; --x: #ffd166; --op: #06d6a0; --neg: #ef476f; }
+  html { background: #0f1b2d; }
+  body { margin: 0; min-height: 100vh; background: radial-gradient(ellipse at 50% 0%, #1d355f 0%, var(--bg) 70%) fixed; color: var(--text);
+    font-family: "Avenir Next", Avenir, "Helvetica Neue", sans-serif; -webkit-text-size-adjust: 100%; }
+  main { max-width: 1040px; margin: 0 auto; padding: 40px 16px 80px; }
+  a { color: inherit; }
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .back { color: var(--dim); text-decoration: none; font-size: 17px; }
+  .sync { font-size: 14px; color: var(--dim); }
+  .sync.on { color: var(--op); }
+  .eyebrow { color: var(--op); font-weight: 700; letter-spacing: 0.25em; font-size: 14px; margin-top: 22px; }
+  h1 { font-size: clamp(32px, 6vw, 52px); margin: 6px 0 22px; }
+  h2 { font-size: 24px; margin: 38px 0 14px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+  .card { background: var(--card); border: 2px solid var(--line); border-radius: 18px; padding: 18px 20px; }
+  .big { font-size: 40px; font-weight: 700; line-height: 1.1; }
+  .label { color: var(--dim); font-size: 15px; margin-top: 6px; }
+  .bar { height: 10px; border-radius: 5px; background: var(--line); overflow: hidden; margin-top: 12px; }
+  .bar i { display: block; height: 100%; background: var(--op); border-radius: 5px; }
+  .bar.y i { background: var(--x); }
+  .testdate { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; font-size: 15px; color: var(--dim); }
+  input[type=date] { background: #0f1b2d; color: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font: inherit; }
+  .units { display: grid; gap: 10px; }
+  .unit { display: grid; grid-template-columns: 1fr auto; gap: 6px 14px; align-items: center; background: var(--card); border: 2px solid var(--line);
+    border-radius: 16px; padding: 14px 18px; }
+  .unit .t { font-weight: 700; font-size: 18px; } .unit .t span { color: var(--x); margin-right: 8px; }
+  .unit .s { color: var(--dim); font-size: 15px; grid-column: 1; }
+  .unit .go { grid-row: 1 / span 2; grid-column: 2; text-decoration: none; background: var(--op); color: var(--bg); font-weight: 700;
+    border-radius: 12px; padding: 10px 16px; font-size: 15px; white-space: nowrap; }
+  .unit .go.again { background: transparent; color: #fff; border: 2px solid var(--dim); }
+  .unit .bar { grid-column: 1 / -1; margin-top: 4px; }
+  .done { color: var(--op); } .mid { color: var(--x); }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--dim); font-weight: 500; }
+  .tablewrap { overflow-x: auto; background: var(--card); border: 2px solid var(--line); border-radius: 16px; padding: 4px 8px; }
+  .miss { display: grid; gap: 10px; }
+  .q { background: var(--card); border: 2px solid var(--line); border-radius: 16px; padding: 14px 18px; }
+  .q .meta { font-size: 14px; color: var(--dim); margin-bottom: 6px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .q .meta b { color: var(--neg); } .pill { background: var(--x); color: var(--bg); border-radius: 20px; padding: 1px 10px; font-weight: 700; font-size: 12px; }
+  .q .text { font-size: 17px; line-height: 1.4; white-space: pre-line; }
+  .q .ans { font-size: 14px; color: var(--dim); margin-top: 6px; }
+  .q a { font-size: 14px; color: var(--op); }
+  .empty { color: var(--dim); font-size: 16px; background: var(--card); border: 2px dashed var(--line); border-radius: 16px; padding: 18px; }
+  .x { color: #ffd166; font-style: italic; } .y { color: #8ecae6; font-style: italic; }
+</style></head>
+<body><main>
+  <div class="top"><a class="back" href="index.html">← All units</a><span class="sync" id="sync"></span></div>
+  <div class="eyebrow">SHSAT MATH</div>
+  <h1>My progress</h1>
+
+  <div class="cards">
+    <div class="card"><div class="big" id="unitsDone">0 / 8</div><div class="label">units finished</div><div class="bar"><i id="unitsBar" style="width:0"></i></div></div>
+    <div class="card"><div class="big" id="mastered">0 / 0</div><div class="label">questions right on her latest try</div><div class="bar y"><i id="masteredBar" style="width:0"></i></div></div>
+    <div class="card"><div class="big" id="countdown">–</div><div class="label" id="countLabel">days until the SHSAT</div>
+      <div class="bar"><i id="countBar" style="width:0"></i></div>
+      <div class="testdate">Test day: <input type="date" id="testDate"></div></div>
+  </div>
+
+  <h2>Units</h2>
+  <div class="units" id="units"></div>
+
+  <h2>Questions to practice again</h2>
+  <div class="miss" id="miss"></div>
+
+  <h2>Every attempt</h2>
+  <div class="tablewrap"><table><thead><tr><th>When</th><th>Unit</th><th>Score</th><th>Time</th><th>Device</th></tr></thead><tbody id="attempts"></tbody></table></div>
+</main>
+<script src="progress-config.js"></script>
+<script src="progress.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+const m = s => esc(s).replace(/\bx\b|(?<=\d)x/g, '<span class="x">x</span>').replace(/\by\b|(?<=\d)y/g, '<span class="y">y</span>');
+const when = iso => new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+const dur = (a, b) => { const s = Math.round((new Date(b) - new Date(a)) / 1000); return s >= 0 && s < 6 * 3600 ? (s < 60 ? "<1 min" : Math.round(s / 60) + " min") : "–"; };
+
+// Load each unit's question list (lesson-data.js defines window.LESSON).
+function loadUnit(n) {
+  return new Promise(res => {
+    const sc = document.createElement("script");
+    sc.src = `unit${n}/lesson-data.js`;
+    sc.onload = () => res(window.LESSON); sc.onerror = () => res(null);
+    document.body.appendChild(sc);
+  });
+}
+
+async function main() {
+  const lessons = {};
+  for (let n = 1; n <= 8; n++) lessons[n] = await loadUnit(n);
+  const { runs, online, configured } = await Progress.allRuns();
+  $("#sync").textContent = configured ? (online ? "● Synced across her devices" : "Offline: showing this device only") : "Saved on this device";
+  $("#sync").className = "sync" + (online ? " on" : "");
+
+  // Test-day countdown
+  const td = (() => { try { return localStorage.getItem("shsat-testdate") || window.TEST_DATE || ""; } catch { return window.TEST_DATE || ""; } })();
+  $("#testDate").value = td;
+  $("#testDate").onchange = e => { try { localStorage.setItem("shsat-testdate", e.target.value); } catch {} drawCountdown(e.target.value); };
+  const unitsDone = new Set(runs.filter(r => r.summary).map(r => r.unit)).size;
+  function drawCountdown(d) {
+    if (!d) { $("#countdown").textContent = "–"; $("#countLabel").textContent = "Set test day to see the countdown"; $("#countBar").style.width = "0"; return; }
+    const days = Math.ceil((new Date(d + "T09:00:00") - new Date()) / 86400000);
+    $("#countdown").textContent = days >= 0 ? days : "Done";
+    const left = 8 - unitsDone;
+    $("#countLabel").textContent = days < 0 ? "test day has passed" : left <= 0 ? "days until the SHSAT · all units finished!" :
+      `days until the SHSAT · about ${Math.max(1, Math.floor(days / left))} day${Math.floor(days / left) === 1 ? "" : "s"} per unit to finish ${left} more`;
+    $("#countBar").style.width = Math.min(100, 100 * unitsDone / 8) + "%";
+  }
+  drawCountdown(td);
+
+  // Units
+  $("#unitsDone").textContent = `${unitsDone} / 8`;
+  $("#unitsBar").style.width = 100 * unitsDone / 8 + "%";
+  let qTotal = 0, qRight = 0;
+  const latestByQ = {};   // unit|qid -> latest result
+  const missCount = {};   // unit|qid -> {miss, seen}
+  for (const r of [...runs].reverse()) {          // oldest first, so later attempts overwrite
+    for (const [qid, res] of Object.entries(r.results || {})) {
+      if (!res || !res.tries) continue;
+      const k = r.unit + "|" + qid;
+      latestByQ[k] = { ...res, when: r.updated || r.started };
+      const c = missCount[k] ||= { miss: 0, seen: 0, answers: [] };
+      c.seen++; if (!res.first) { c.miss++; c.answers.push(...(res.answers || [])); }
+    }
+  }
+  const unitsEl = $("#units");
+  for (let n = 1; n <= 8; n++) {
+    const L = lessons[n]; if (!L) continue;
+    const ur = runs.filter(r => r.unit === n);
+    const fin = ur.filter(r => r.summary);
+    const best = fin.reduce((b, r) => (!b || r.summary.first / r.summary.total > b.first / b.total ? r.summary : b), null);
+    const last = ur[0];
+    const qs = Object.keys(L.questions);
+    qTotal += qs.length;
+    const right = qs.filter(q => latestByQ[n + "|" + q]?.first).length; qRight += right;
+    let status;
+    if (best) status = `<span class="done">Finished</span> · best ${best.first}/${best.total} first try · ${fin.length} attempt${fin.length > 1 ? "s" : ""} · last ${when(last.updated || last.started)}`;
+    else if (last) status = `<span class="mid">In progress</span> · reached part ${Math.min(last.step || 1, last.steps || 1)} of ${last.steps || L.flow.length} · ${when(last.updated || last.started)}`;
+    else status = "Not started";
+    const pct = best ? 100 * best.first / best.total : last ? 100 * (last.step || 0) / (last.steps || L.flow.length) : 0;
+    const div = document.createElement("div");
+    div.className = "unit";
+    div.innerHTML = `<div class="t"><span>Unit ${n}</span>${esc(L.unit.title)}</div><div class="s">${status}</div>
+      <a class="go${best ? " again" : ""}" href="unit${n}/lesson.html">${best ? "Practice again" : last ? "Continue" : "Start"}</a>
+      <div class="bar${best ? "" : " y"}"><i style="width:${pct}%"></i></div>`;
+    unitsEl.appendChild(div);
+  }
+  $("#mastered").textContent = `${qRight} / ${qTotal}`;
+  $("#masteredBar").style.width = (qTotal ? 100 * qRight / qTotal : 0) + "%";
+
+  // Questions to practice again: missed on the latest try, or missed more than once
+  const items = Object.entries(missCount).filter(([k, c]) => !latestByQ[k].first || c.miss > 1)
+    .sort((a, b) => (b[1].miss - a[1].miss) || (a[0] < b[0] ? -1 : 1));
+  const missEl = $("#miss");
+  if (!items.length) missEl.innerHTML = `<div class="empty">${runs.length ? "Nothing to review: every question she's tried is right on her latest attempt." : "Nothing yet. Questions she misses will show up here."}</div>`;
+  for (const [k, c] of items.slice(0, 40)) {
+    const [n, qid] = k.split("|"); const L = lessons[n]; const q = L && L.questions[qid]; if (!q) continue;
+    const latest = latestByQ[k];
+    const div = document.createElement("div");
+    div.className = "q";
+    div.innerHTML = `<div class="meta">Unit ${n} · ${esc(L.unit.title)} ${q.tag ? `<span class="pill">${esc(q.tag)}</span>` : ""}
+      <span>Missed <b>${c.miss}</b> of ${c.seen} ${c.seen > 1 ? "tries" : "try"}${latest.first ? " · right last time ✓" : ""}</span></div>
+      <div class="text">${m(q.q)}</div>
+      ${c.answers.length ? `<div class="ans">Her answers: ${esc([...new Set(c.answers)].slice(-4).join(", "))}</div>` : ""}
+      <a href="unit${n}/lesson.html">Practice Unit ${n} ▸</a>`;
+    missEl.appendChild(div);
+  }
+
+  // Every attempt
+  const tb = $("#attempts");
+  if (!runs.length) tb.innerHTML = `<tr><td colspan="5" style="color:var(--dim)">No attempts yet.</td></tr>`;
+  for (const r of runs) {
+    const L = lessons[r.unit];
+    const score = r.summary ? `<b>${r.summary.first}/${r.summary.total}</b> first try` : `<span class="mid">part ${Math.min(r.step || 1, r.steps || 1)} of ${r.steps || "?"}</span>`;
+    tb.insertAdjacentHTML("beforeend", `<tr><td>${when(r.started)}</td><td>${r.unit}${L ? " · " + esc(L.unit.title) : ""}</td><td>${score}</td>
+      <td>${r.summary ? dur(r.started, r.summary.finished) : "–"}</td><td>${esc((r.device || "").split("-")[0])}</td></tr>`);
+  }
+}
+main();
+</script>
+</body></html>
