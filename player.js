@@ -75,6 +75,8 @@ function progress() {
 
 function go(i) {
   step = i;
+  document.querySelectorAll(".overlay").forEach(o => { o.style.display = "none"; o.querySelectorAll("video").forEach(v => v.pause()); });
+  cancelAnimationFrame(explainRaf);
   if (startedAt) save();
   stopScene(); stopVoice();
   $("#quiz").style.display = "none";
@@ -282,8 +284,43 @@ function renderQuestion(block, qi, next) {
   nextBtn.style.display = "none";
   const hear = h("button", "btn ghost", "🔊 Read it again");
   hear.onclick = () => say(qid + "-say");
-  actions.append(hear, checkBtn, nextBtn);
+  // Help is always there: a voiced hint first, then an animated step-by-step, and the lesson video to rewatch.
+  const helpBtn = h("button", "btn help", "💡 Help");
+  helpBtn.onclick = () => { if (!r.hinted) showHint(); else openExplain(); };
+  actions.append(hear, helpBtn, checkBtn, nextBtn);
   box.appendChild(actions);
+  const answerText = () => m(q.kind === "mc" ? q.answer + ".  " + q.choices["ABCD".indexOf(q.answer)] : q.kind === "num" ? (q.show || pretty(q.answer)) : q.kind === "expr" ? q.show : q.template.split("[]").map((p, i) => p + (i < q.answers.length ? pretty(q.answers[i]) : "")).join(""));
+  function helpRow() {
+    const row = h("div", "helprow");
+    const how = h("button", "btn help", "🎬 Show me how");
+    how.onclick = openExplain;
+    row.appendChild(how);
+    for (const sc of lessonScenes(block)) {
+      const b = h("button", "btn ghost small", `📺 Rewatch: ${esc(L.titles?.[sc] || sc)}`);
+      b.onclick = () => rewatch(sc);
+      row.appendChild(b);
+    }
+    return row;
+  }
+  function showHint(afterWrong) {
+    r.hinted = true;
+    fb.innerHTML = `<div class="msg ${afterWrong ? "bad" : "tipmsg"}">${afterWrong ? "Not quite. " : ""}💡 Hint: ${m(q.hint)}</div>`;
+    fb.appendChild(helpRow());
+    helpBtn.textContent = "🎬 Show me how";
+    say(qid + "-hint_say");
+    actions.scrollIntoView({ block: "nearest" });
+  }
+  function openExplain() {
+    r.explained = true;
+    if (!r.hinted) { r.hinted = true; helpBtn.textContent = "🎬 Show me how"; }
+    explain(q, qid, answerText(), lessonScenes(block), () => {
+      // back to the question: she enters the answer herself
+      if (r.solved) return;
+      fb.innerHTML = `<div class="msg tipmsg">Your turn: enter the answer you just saw worked out.</div>`;
+      fb.appendChild(helpRow());
+      (inputs[0] || area).focus?.();
+    });
+  }
 
   function correct(ans) {
     if (q.kind === "mc") return ans === q.answer;
@@ -298,43 +335,130 @@ function renderQuestion(block, qi, next) {
     area.querySelectorAll("button, input").forEach(e => e.disabled = true);
     save();
   }
-  function showSteps() {
-    area.style.display = "none";   // make room: the message above states the answer
-    const s = h("div", "steps" + (q.steps.length > 3 ? " many" : ""));
-    q.steps.forEach(([eq, note], i) => {
-      const line = h("div", "stepline", `<span class="eqtxt">${m(eq)}</span>${note ? `<span class="note">${esc(note)}</span>` : ""}`);
-      line.style.animationDelay = (0.6 + i * 1.6) + "s";
-      s.appendChild(line);
-    });
-    fb.appendChild(s);
-  }
   function check() {
     const ans = read();
     if (ans == null || (Array.isArray(ans) && ans.some(a => !a))) { fb.innerHTML = `<div class="msg warn">Enter an answer first.</div>`; return; }
     r.tries++; r.answers.push(Array.isArray(ans) ? ans.map(pretty).join(", ") : ans);
     if (correct(ans)) {
-      r.solved = true; r.first = r.tries === 1;
+      r.solved = true; r.first = r.tries === 1 && !r.explained;
       fb.innerHTML = `<div class="msg good">✓ Correct!</div>`;
       area.classList.add("right");
       say("correct" + Math.floor(Math.random() * L.nCorrect));
       finish();
     } else if (r.tries === 1) {
-      fb.innerHTML = `<div class="msg bad">Not quite. Hint: ${m(q.hint)}</div>`;
       area.classList.remove("shake"); void area.offsetWidth; area.classList.add("shake");
       checkBtn.textContent = "Check again";
-      say(qid + "-hint_say");
-      actions.scrollIntoView({ block: "nearest" });
+      showHint(true);
+    } else if (r.tries === 2 && !r.explained) {
+      area.classList.remove("shake"); void area.offsetWidth; area.classList.add("shake");
+      fb.innerHTML = `<div class="msg bad">Not quite. Let's work it out together.</div>`;
+      openExplain();
     } else {
-      fb.innerHTML = `<div class="msg bad">Let's work it out together. The answer is <b>${m(q.kind === "mc" ? q.answer + ".  " + q.choices["ABCD".indexOf(q.answer)] : q.kind === "num" ? (q.show || pretty(q.answer)) : q.kind === "expr" ? q.show : q.template.split("[]").map((p, i) => p + (i < q.answers.length ? pretty(q.answers[i]) : "")).join(""))}</b></div>`;
-      showSteps();
+      fb.innerHTML = `<div class="msg bad">The answer is <b>${answerText()}</b>. You'll get the next one!</div>`;
+      fb.appendChild(helpRow());
       say(qid + "-solve_say");
-      setTimeout(() => actions.scrollIntoView({ block: "nearest", behavior: "smooth" }), 400);
       finish();
     }
   }
   checkBtn.onclick = check;
   nextBtn.onclick = () => { stopVoice(); next(); };
   say(qid + "-say");
+}
+
+// ---------- help: rewatch a lesson part, and the animated "show me how" ----------
+// The lesson parts that teach a quiz block: the scenes just before it in the flow.
+function lessonScenes(block) {
+  const i = L.flow.findIndex(f => f[0] === "quiz" && f[1] === block || (f[1] && f[1].id === block.id));
+  const out = [];
+  for (let j = (i < 0 ? L.flow.length : i) - 1; j >= 0 && L.flow[j][0] === "scene"; j--) out.unshift(L.flow[j][1]);
+  return out.filter(n => L.videos && L.videos[n] && !/Title|Recap/.test(n)).slice(-3);
+}
+function overlay(id) {
+  let o = document.getElementById(id);
+  if (!o) { o = h("div", "overlay"); o.id = id; $("#ui").appendChild(o); }
+  o.innerHTML = ""; o.style.display = "flex";
+  return o;
+}
+function rewatch(name) {
+  stopVoice();
+  const o = overlay("rewatch");
+  const head = h("div", "ovhead", `<span>📺 ${esc(L.titles?.[name] || name)}</span>`);
+  const close = h("button", "btn ghost", "✕ Back to the question");
+  close.onclick = () => { v.pause(); o.style.display = "none"; };
+  head.appendChild(close);
+  const v = h("video", "ovvideo");
+  v.src = L.videos[name]; v.setAttribute("playsinline", ""); v.controls = true;
+  o.append(head, v);
+  v.play().catch(() => {});
+  v.onended = () => { close.textContent = "✓ Back to the question"; };
+}
+let explainRaf = null;
+function explain(q, qid, answerHTML, scenes, onBack) {
+  stopVoice();
+  cancelAnimationFrame(explainRaf);
+  const o = overlay("explain");
+  const head = h("div", "ovhead", `<span>🎬 Let's work it out together</span>`);
+  const back = h("button", "btn go", "Now you try ▸");
+  head.appendChild(back);
+  const body = h("div", "exbody");
+  const left = h("div", "exq", `<div class="exqtext">${m(q.q).replace(/\n/g, "<br>")}</div>` + (q.figure ? `<div class="exfig">${q.figure}</div>` : ""));
+  const steps = h("div", "exsteps");
+  const lines = q.steps.map(([eq, note], i) => {
+    const line = h("div", "exline", `<span class="exn">${i + 1}</span><span class="exeq">${m(eq)}</span>${note ? `<span class="exnote">${esc(note)}</span>` : ""}`);
+    steps.appendChild(line);
+    return line;
+  });
+  const ans = h("div", "exans", `Answer: <b>${answerHTML}</b>`);
+  steps.appendChild(ans);
+  body.append(left, steps);
+  const foot = h("div", "exfoot");
+  const replay = h("button", "btn ghost small", "↺ Play again");
+  foot.appendChild(replay);
+  for (const sc of scenes) {
+    const b = h("button", "btn ghost small", `📺 Rewatch: ${esc(L.titles?.[sc] || sc)}`);
+    b.onclick = () => { stopVoice(); cancelAnimationFrame(explainRaf); rewatch(sc); };
+    foot.appendChild(b);
+  }
+  o.append(head, body, foot);
+  // Shrink the text until the whole explanation fits on one screen (long questions, many steps).
+  const base = { steps: parseFloat(getComputedStyle(steps).fontSize), q: parseFloat(getComputedStyle(left).fontSize) };
+  const tall = document.body.classList.contains("portrait");   // upright phones scroll instead of shrinking
+  for (let k = 1; k <= 8 && ((!tall && o.scrollHeight > o.clientHeight + 2) || steps.scrollWidth > steps.clientWidth + 2); k++) {
+    steps.style.fontSize = base.steps * (1 - 0.06 * k) + "px";
+    left.style.fontSize = base.q * (1 - 0.06 * k) + "px";
+  }
+
+  // Reveal each step as the voice reaches it (sentence start times recorded at build time).
+  const cues = (L.solveCues && L.solveCues[qid]) || [];
+  function times(dur) {
+    const n = lines.length;
+    if (cues.length >= 2) return lines.map((_, i) => cues[Math.min(cues.length - 1, Math.floor(i * cues.length / n))] + (i ? 0.2 : 0.3));
+    return lines.map((_, i) => 0.3 + i * (dur || 2 * n) / (n + 1));
+  }
+  function play() {
+    lines.forEach(l => l.className = "exline"); ans.classList.remove("on");
+    cancelAnimationFrame(explainRaf);
+    const a = say(qid + "-solve_say");
+    const t0 = performance.now();
+    const tick = () => {
+      const t = a && !a.paused && a.currentTime ? a.currentTime : (performance.now() - t0) / 1000;
+      const ts = times(a && a.duration);
+      let cur = -1;
+      ts.forEach((tt, i) => { if (t >= tt) cur = i; });
+      lines.forEach((l, i) => {
+        const cls = "exline" + (i < cur ? " done" : i === cur ? " now" : "");
+        if (cls !== l.className) { l.className = cls; if (i === cur && tall) l.scrollIntoView({ block: "nearest", behavior: "smooth" }); }
+      });
+      const end = a && a.duration ? a.duration - 0.6 : ts[ts.length - 1] + 2.5;
+      if (t >= end || (a && a.ended)) { lines.forEach(l => l.className = "exline done"); ans.classList.add("on"); return; }
+      explainRaf = requestAnimationFrame(tick);
+    };
+    explainRaf = requestAnimationFrame(tick);
+  }
+  replay.onclick = play;
+  back.onclick = () => { stopVoice(); cancelAnimationFrame(explainRaf); o.style.display = "none"; onBack && onBack(); };
+  window.explainAll = () => { cancelAnimationFrame(explainRaf); stopVoice(); lines.forEach(l => l.className = "exline done"); ans.classList.add("on"); };
+  play();
 }
 
 // ---------- results ----------
